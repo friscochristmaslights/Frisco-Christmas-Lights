@@ -92,6 +92,30 @@
   .req-card dd{margin:0;font-weight:600}
   .req-card img{width:100%;border-radius:10px;margin-top:12px;border:1px solid var(--line)}
   .from-lead{display:flex;justify-content:space-between;align-items:center;background:#FFF4DC;color:#8A6412;border-radius:10px;padding:10px 12px;font-weight:700;font-size:.88rem;margin-bottom:14px}
+
+  /* ---------- Light Designer ---------- */
+  .designer{position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column;color:#fff;touch-action:none}
+  .d-top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;background:#100A09}
+  .d-top .ttl{flex:1;font-weight:800;font-size:.95rem}
+  .d-btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;font-size:.9rem;background:#2a201d;color:#fff}
+  .d-btn.pri{background:var(--red)}
+  .d-btn.ok{background:var(--ok)}
+  .d-btn.on{background:var(--gold);color:#1a1006}
+  .d-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .d-stage canvas{max-width:100%;max-height:100%;touch-action:none;display:block}
+  .d-hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(16,10,9,.85);padding:7px 12px;border-radius:999px;font-size:.8rem;font-weight:600;white-space:nowrap;pointer-events:none}
+  .d-float{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+  .d-tools{background:#100A09;padding:8px 10px calc(10px + env(safe-area-inset-bottom,0px));display:grid;gap:8px}
+  .d-row{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+  .d-row::-webkit-scrollbar{display:none}
+  .d-row .d-btn{flex:0 0 auto;padding:9px 12px}
+  .d-pat{flex:0 0 auto;display:flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:7px 11px;background:#2a201d;color:#fff;font-weight:700;font-size:.8rem}
+  .d-pat.on{outline:2px solid var(--gold)}
+  .d-pat i{display:flex;gap:2px}
+  .d-pat i b{width:9px;height:9px;border-radius:50%;display:block;box-shadow:0 0 5px currentColor}
+  .d-sl{display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:#cbbfae}
+  .d-sl input{flex:1;accent-color:var(--gold)}
+  .design-btn{width:100%;padding:13px;border:0;border-radius:10px;background:linear-gradient(180deg,#C21530,#A2021F);color:#fff;font-weight:800;margin-bottom:8px}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -124,6 +148,7 @@
           <dl id="reqList"></dl>
           <img id="reqPhoto" alt="Customer's house photo" hidden>
           <p class="muted" id="reqPhotoHint" hidden style="margin:8px 0 0">Press and hold the photo to save it, mark it up, then add it below as your preview.</p>
+          <button class="design-btn" id="designLeadBtn" hidden style="margin-top:10px">&#127876; Design lights on their photo</button>
         </div>
         <div class="card">
           <h2>Customer</h2>
@@ -163,8 +188,9 @@
           <h2>Lighting preview photo</h2>
           <p class="muted" style="margin:0 0 10px">Attach your marked-up photo of their house (optional).</p>
           <input type="file" id="photo" accept="image/*" hidden>
-          <button class="ghost" id="photoBtn">&#128247; Add photo</button>
-          <div class="photo-prev" id="photoPrev" hidden><img alt="Preview photo"><button class="linkbtn" id="photoRm">Remove</button></div>
+          <button class="design-btn" id="designBtn">&#127876; Design lights on a photo</button>
+          <button class="ghost" id="photoBtn">&#128247; Attach a finished photo</button>
+          <div class="photo-prev" id="photoPrev" hidden><img alt="Preview photo"><div><button class="linkbtn" id="photoRm">Remove</button></div></div>
         </div>
 
         <div class="card">
@@ -186,6 +212,34 @@
   </div>
 </div>
 
+
+<div class="designer" id="designer" hidden>
+  <div class="d-top">
+    <button class="d-btn" id="dCancel">Cancel</button>
+    <div class="ttl">Light Designer</div>
+    <button class="d-btn" id="dUndo">Undo</button>
+    <button class="d-btn ok" id="dDone">Done</button>
+  </div>
+  <div class="d-stage" id="dStage">
+    <canvas id="dCanvas"></canvas>
+    <div class="d-hint" id="dHint"></div>
+    <div class="d-float" id="dFloat" hidden><button class="d-btn" id="dCloseShape">Close shape</button><button class="d-btn pri" id="dFinish">Finish line</button></div>
+  </div>
+  <div class="d-tools">
+    <div class="d-row" id="dToolRow">
+      <button class="d-btn on" data-tool="line">&#10148; Line</button>
+      <button class="d-btn" data-tool="draw">&#9997; Draw</button>
+      <button class="d-btn" data-tool="box">&#9634; Window</button>
+      <button class="d-btn" data-tool="arch">&#8745; Arch</button>
+      <button class="d-btn" data-tool="tree">&#127794; Tree wrap</button>
+      <button class="d-btn" id="dClear">Clear all</button>
+    </div>
+    <div class="d-row" id="dPatRow"></div>
+    <div class="d-sl"><span>Bulb size</span><input type="range" id="dSize" min="0.5" max="2.2" step="0.05" value="1"><span>Spacing</span><input type="range" id="dGap" min="2" max="6" step="0.1" value="3.2"></div>
+    <div class="d-sl"><span>Night mode</span><input type="range" id="dNight" min="0" max="0.85" step="0.01" value="0.5"></div>
+  </div>
+</div>
+<input type="file" id="dFile" accept="image/*" hidden>
 <script>
 var API='https://script.google.com/macros/s/AKfycbxQTr_N2qPRFJ4SF60Hgs69iqh9exsbqk1OAlY1IZLOtl_tSwyM7lDivbiSioAjC8AsTA/exec';
 var $=function(s){return document.querySelector(s)};
@@ -379,19 +433,148 @@ function startFromLead(id,btn){
       api({a:'lead',pin:state.pin,id:L.id,photo:'1'}).then(function(p){
         if(state.leadId!==L.id)return;
         if(p.ok&&p.lead.photo){$('#reqPhoto').src='data:'+(p.lead.photoType||'image/jpeg')+';base64,'+p.lead.photo;$('#reqPhoto').hidden=false;
-          hint.textContent='Press and hold the photo to save it, mark it up, then add it below as your preview.';}
+          hint.textContent='Tap the button below to design the lights right on their photo.';$('#designLeadBtn').hidden=false;}
         else hint.textContent='Couldn\'t load the photo here. It\'s also in your info.friscolights inbox.';
       }).catch(function(){if(state.leadId===L.id)hint.textContent='Couldn\'t load the photo here. It\'s also in your info.friscolights inbox.';});
     }
   }).catch(function(){btn.disabled=false;btn.textContent='Start estimate';alert('No connection.');});
 }
-function clearLead(){state.leadId='';$('#fromLead').hidden=true;$('#reqCard').hidden=true;$('#reqPhoto').hidden=true;$('#reqPhotoHint').hidden=true;$('#reqPhoto').removeAttribute('src');}
+function clearLead(){state.leadId='';$('#designLeadBtn').hidden=true;$('#fromLead').hidden=true;$('#reqCard').hidden=true;$('#reqPhoto').hidden=true;$('#reqPhotoHint').hidden=true;$('#reqPhoto').removeAttribute('src');}
 $('#unlinkLead').onclick=function(){if(confirm('Clear this lead and start a blank estimate?')){resetFields();clearLead();}};
 function resetFields(){
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
   state.qty={};state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();renderItems();
   $('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;showErr($('#formErr'),'');
 }
+
+
+/* ================= LIGHT DESIGNER ================= */
+var D=(function(){
+  var C={W:'#FFD27A',C:'#EAF3FF',R:'#FF2B2B',G:'#1FD25A',B:'#3D8BFF',Y:'#FFE14A',O:'#FF9A2A',P:'#B65CFF'};
+  var PATS=[
+    {k:'warm',n:'Warm white',s:'W'},{k:'cool',n:'Cool white',s:'C'},{k:'multi',n:'Multicolor',s:'RGBYO'},
+    {k:'rw',n:'Red/White',s:'RW'},{k:'rrww',n:'R R W W',s:'RRWW'},{k:'rwg',n:'R/W green peaks',s:'RW',peaks:'G'},
+    {k:'rg',n:'Red/Green',s:'RG'},{k:'rgw',n:'Red/Green/White',s:'RGW'},{k:'bw',n:'Blue/White',s:'BW'},{k:'red',n:'All red',s:'R'}];
+  var cv=$('#dCanvas'),ctx=cv.getContext('2d'),img=null,strokes=[],cur=null,tool='line',pat=PATS[0],spr={},logo=new Image(),onDone=null,raf=0,drag=null;
+  logo.src=document.querySelector('.top img').src;
+  var HINT={line:'Tap point to point along the roofline. Tap the first point to close a shape.',draw:'Drag your finger to draw a line of lights.',
+    box:'Drag a box around a window or door.',arch:'Drag over an arched window or doorway.',tree:'Drag a box over a tree to wrap it.'};
+
+  // build pattern chips
+  PATS.forEach(function(p,i){var b=document.createElement('button');b.className='d-pat'+(i?'':' on');
+    var dots=(p.s+(p.peaks||'')).split('').slice(0,5).map(function(c){return '<b style="background:'+C[c]+';color:'+C[c]+'"></b>'}).join('');
+    b.innerHTML='<i>'+dots+'</i>'+p.n;b.onclick=function(){pat=p;document.querySelectorAll('.d-pat').forEach(function(x){x.classList.toggle('on',x===b)});
+      if(cur){cur.pat=p;draw();} else if(strokes.length&&confirmRecolor()){strokes[strokes.length-1].pat=p;draw();}};
+    $('#dPatRow').appendChild(b);});
+  var lastRecolorAsk=0;function confirmRecolor(){return false;}
+  document.querySelectorAll('#dToolRow [data-tool]').forEach(function(b){b.onclick=function(){finishCur();tool=b.dataset.tool;
+    document.querySelectorAll('#dToolRow [data-tool]').forEach(function(x){x.classList.toggle('on',x===b)});hint();}});
+  function hint(t){$('#dHint').textContent=t||HINT[tool];}
+
+  function base(){return Math.max(img.width,img.height)/170;}
+  function sprite(col,r){var key=col+'|'+Math.round(r*10);if(spr[key])return spr[key];
+    var s=Math.ceil(r*9),c=document.createElement('canvas');c.width=c.height=s;var g=c.getContext('2d'),m=s/2;
+    var gl=g.createRadialGradient(m,m,0,m,m,m);gl.addColorStop(0,hexA(col,.85));gl.addColorStop(.18,hexA(col,.55));gl.addColorStop(.45,hexA(col,.16));gl.addColorStop(1,hexA(col,0));
+    g.fillStyle=gl;g.fillRect(0,0,s,s);
+    var core=g.createRadialGradient(m-r*.25,m-r*.3,0,m,m,r);core.addColorStop(0,'#fff');core.addColorStop(.45,lighten(col));core.addColorStop(1,col);
+    g.fillStyle=core;g.beginPath();g.ellipse(m,m,r*.78,r,0,0,Math.PI*2);g.fill();
+    return spr[key]=c;}
+  function hexA(h,a){var n=parseInt(h.slice(1),16);return 'rgba('+(n>>16)+','+(n>>8&255)+','+(n&255)+','+a+')';}
+  function lighten(h){var n=parseInt(h.slice(1),16),f=function(v){return Math.min(255,v+(255-v)*.55|0)};return 'rgb('+f(n>>16)+','+f(n>>8&255)+','+f(n&255)+')';}
+
+  // geometry
+  function pathPts(st){var p=st.pts.slice();if(st.closed&&p.length>2)p.push(p[0]);return p;}
+  function bulbs(st){
+    var sc=st.size*base(),gap=sc*st.gap*(st.kind==='tree'?.62:1),p=pathPts(st),out=[],acc=0;
+    if(p.length===1){return [{x:p[0].x,y:p[0].y}];}
+    out.push({x:p[0].x,y:p[0].y});
+    for(var i=1;i<p.length;i++){var a=p[i-1],b=p[i],dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy),t=gap-acc;
+      while(t<=L){out.push({x:a.x+dx*t/L,y:a.y+dy*t/L});t+=gap;} acc=L-(t-gap);}
+    if(st.closed&&out.length>2){var f=out[0],l=out[out.length-1];if(Math.hypot(f.x-l.x,f.y-l.y)<gap*.5)out.pop();}
+    return out;}
+  function peakIdx(st,bs){if(!st.pat.peaks||st.kind==='tree')return {};var p=st.pts,n=p.length,res={};
+    for(var i=0;i<n;i++){var prev=p[(i-1+n)%n],next=p[(i+1)%n];if(!st.closed&&(i===0||i===n-1))continue;
+      if(p[i].y<prev.y-2&&p[i].y<next.y-2){var best=-1,bd=1e9;bs.forEach(function(b,j){var d=Math.hypot(b.x-p[i].x,b.y-p[i].y);if(d<bd){bd=d;best=j}});if(best>=0)res[best]=1;}}
+    return res;}
+  function boxPts(a,b){var x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
+    return [{x:x0,y:y1},{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1}];}
+  function archPts(a,b){var x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y),w=x1-x0,r=w/2,cx=x0+r,cy=Math.min(y0+r,y1);
+    var pts=[{x:x0,y:y1},{x:x0,y:cy}];for(var i=1;i<16;i++){var t=Math.PI+Math.PI*i/16;pts.push({x:cx+r*Math.cos(t),y:cy+r*Math.sin(t)*Math.min(1,(cy-y0)/r||1)});}
+    pts.push({x:x1,y:cy},{x:x1,y:y1});return pts;}
+  function treePts(a,b,st){var x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y),w=x1-x0,
+    turn=Math.max(base()*st.size*7,(y1-y0)/6),pts=[],y=y1,left=true;
+    while(y>y0){pts.push({x:left?x0:x1,y:y});y-=turn/2;left=!left;}
+    pts.push({x:left?x0:x1,y:y0});return pts;}
+  function simplify(pts,eps){if(pts.length<3)return pts;var dmax=0,idx=0,a=pts[0],b=pts[pts.length-1];
+    for(var i=1;i<pts.length-1;i++){var d=segDist(pts[i],a,b);if(d>dmax){dmax=d;idx=i}}
+    if(dmax>eps){var l=simplify(pts.slice(0,idx+1),eps),r=simplify(pts.slice(idx),eps);return l.slice(0,-1).concat(r);}return [a,b];}
+  function segDist(p,a,b){var dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy;if(!L)return Math.hypot(p.x-a.x,p.y-a.y);
+    var t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);}
+
+  // render
+  function draw(){cancelAnimationFrame(raf);raf=requestAnimationFrame(function(){render(false)});}
+  function render(final){if(!img)return;
+    ctx.globalCompositeOperation='source-over';ctx.drawImage(img,0,0,cv.width,cv.height);
+    var n=+$('#dNight').value;if(n>0){ctx.fillStyle='rgba(6,10,28,'+n+')';ctx.fillRect(0,0,cv.width,cv.height);}
+    var all=strokes.slice();if(cur)all.push(cur);
+    ctx.globalCompositeOperation='lighter';
+    all.forEach(function(st){var bs=bulbs(st),pk=peakIdx(st,bs),seq=st.pat.s,r=st.size*base()*(st.kind==='tree'?.6:1);
+      bs.forEach(function(b,i){var col=C[pk[i]?st.pat.peaks:seq[i%seq.length]],sp=sprite(col,r);ctx.drawImage(sp,b.x-sp.width/2,b.y-sp.height/2);});});
+    ctx.globalCompositeOperation='source-over';
+    if(cur&&cur.kind==='line'&&!final){var p=cur.pts[0];ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=base()*.35;
+      ctx.beginPath();ctx.arc(p.x,p.y,base()*1.8,0,Math.PI*2);ctx.stroke();}
+    if(final)watermark();}
+  function watermark(){var h=Math.max(cv.height*.075,40),pad=h*.3,lw=logo.naturalWidth?h*logo.naturalWidth/logo.naturalHeight:0,
+    fs=Math.round(h*.3),txt='Lighting preview \u2022 friscolights.com \u2022 (972) 556-5120';
+    ctx.font='700 '+fs+'px -apple-system,Segoe UI,Roboto,sans-serif';var tw=ctx.measureText(txt).width,bw=lw+tw+pad*3,bh=h+pad;
+    ctx.fillStyle='rgba(10,6,5,.72)';roundRect(pad,cv.height-bh-pad,bw,bh,bh*.25);ctx.fill();
+    if(lw)ctx.drawImage(logo,pad*2,cv.height-bh-pad+pad/2,lw,h);
+    ctx.fillStyle='#F6E7C3';ctx.textBaseline='middle';ctx.fillText(txt,pad*2+lw+pad,cv.height-pad-bh/2);}
+  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+  // input
+  function pt(e){var r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};}
+  function scrScale(){return cv.width/cv.getBoundingClientRect().width;}
+  function newStroke(kind){return {kind:kind,pts:[],closed:false,pat:pat,size:+$('#dSize').value,gap:+$('#dGap').value};}
+  cv.addEventListener('pointerdown',function(e){e.preventDefault();cv.setPointerCapture(e.pointerId);var p=pt(e);
+    if(tool==='line'){if(!cur)cur=newStroke('line');
+      if(cur.pts.length>=3&&Math.hypot(p.x-cur.pts[0].x,p.y-cur.pts[0].y)<28*scrScale()){cur.closed=true;finishCur();return;}
+      cur.pts.push(p);$('#dFloat').hidden=false;$('#dCloseShape').hidden=cur.pts.length<3;draw();return;}
+    drag={start:p};cur=newStroke(tool);if(tool==='draw')cur.pts=[p];draw();});
+  cv.addEventListener('pointermove',function(e){if(!drag)return;var p=pt(e);
+    if(tool==='draw'){var l=cur.pts[cur.pts.length-1];if(Math.hypot(p.x-l.x,p.y-l.y)>4*scrScale())cur.pts.push(p);}
+    else if(tool==='box'){cur.pts=boxPts(drag.start,p);cur.closed=true;}
+    else if(tool==='arch'){cur.pts=archPts(drag.start,p);}
+    else if(tool==='tree'){cur.pts=treePts(drag.start,p,cur);}
+    draw();});
+  function up(){if(!drag)return;drag=null;
+    if(tool==='draw')cur.pts=simplify(cur.pts,3*scrScale());
+    if(cur&&cur.pts.length>1){var a=cur.pts[0],b=cur.pts[cur.pts.length-1],xs=cur.pts.map(function(q){return q.x}),ys=cur.pts.map(function(q){return q.y});
+      if(Math.max.apply(0,xs)-Math.min.apply(0,xs)+Math.max.apply(0,ys)-Math.min.apply(0,ys)>12*scrScale())strokes.push(cur);}
+    cur=null;draw();}
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+  function finishCur(){if(cur&&cur.kind==='line'&&cur.pts.length>=2)strokes.push(cur);cur=null;$('#dFloat').hidden=true;draw();}
+  $('#dFinish').onclick=finishCur;
+  $('#dCloseShape').onclick=function(){if(cur){cur.closed=true;finishCur();}};
+  $('#dUndo').onclick=function(){if(cur&&cur.kind==='line'&&cur.pts.length){cur.pts.pop();if(!cur.pts.length){cur=null;$('#dFloat').hidden=true;}else $('#dCloseShape').hidden=cur.pts.length<3;}else strokes.pop();draw();};
+  $('#dClear').onclick=function(){if((strokes.length||cur)&&confirm('Clear all the lights?')){strokes=[];cur=null;$('#dFloat').hidden=true;draw();}};
+  ['#dNight','#dSize','#dGap'].forEach(function(id){$(id).oninput=function(){if(id!=='#dNight'&&cur){cur.size=+$('#dSize').value;cur.gap=+$('#dGap').value;}
+    else if(id!=='#dNight'&&strokes.length){var l=strokes[strokes.length-1];l.size=+$('#dSize').value;l.gap=+$('#dGap').value;}draw();}});
+  $('#dCancel').onclick=function(){if((strokes.length||cur)&&!confirm('Leave without saving this design?'))return;close();};
+  $('#dDone').onclick=function(){finishCur();if(!strokes.length&&!confirm('No lights added yet. Use the photo anyway?'))return;
+    render(true);var data=cv.toDataURL('image/jpeg',.88);close();if(onDone)onDone(data);};
+  function close(){$('#designer').hidden=true;document.body.style.overflow='';strokes=[];cur=null;img=null;}
+
+  function open(src,cb){onDone=cb;var im=new Image();im.onload=function(){
+      var mx=1800,sc=Math.min(1,mx/Math.max(im.width,im.height));cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);
+      img=im;strokes=[];cur=null;spr={};$('#designer').hidden=false;document.body.style.overflow='hidden';hint();render(false);};
+    im.onerror=function(){alert('Could not open that photo. Try another one.');};im.src=src;}
+  return {open:open};
+})();
+function setPreview(d){state.photo=d.split(',')[1];$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;}
+$('#designBtn').onclick=function(){$('#dFile').click()};
+$('#dFile').onchange=function(){var f=this.files[0];if(!f)return;var u=URL.createObjectURL(f);D.open(u,function(d){setPreview(d);URL.revokeObjectURL(u);$('#photoPrev').scrollIntoView({block:'center'});});this.value='';};
+$('#designLeadBtn').onclick=function(){var s=$('#reqPhoto').src;if(!s)return;D.open(s,function(d){setPreview(d);$('#photoPrev').scrollIntoView({block:'center'});});};
 
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&state.pin){refreshBadge();if(!$('#tab-recent').hidden)loadRecent();}});
 boot();
