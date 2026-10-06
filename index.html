@@ -223,7 +223,10 @@
 
   /* Final quote */
   .final{background:radial-gradient(900px 400px at 85% 0%,rgba(194,21,48,.35),transparent 70%),linear-gradient(160deg,#7E0218,var(--red) 60%,#8C0119);color:#fff}
-  .final-grid{display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:center}
+  .final{position:relative;overflow:hidden}
+  .final .snow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .final-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1.1fr;gap:64px;align-items:start}
+  .final-grid>div:first-child{position:sticky;top:120px;padding-top:40px}
   .final .kicker{color:var(--gold-lt)}
   .final .kicker::before{background:var(--gold-lt)}
   .final h2{font-size:clamp(2.3rem,4.6vw,3.6rem);color:#fff}
@@ -234,7 +237,7 @@
   .final .call-big svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:1.8}
   .final .qcard{border-top-color:var(--gold)}
   .final .qcard h2{color:var(--ink);font-size:1.9rem}
-  @media (max-width:900px){.final-grid{grid-template-columns:1fr;gap:40px}}
+  @media (max-width:900px){.final-grid{grid-template-columns:1fr;gap:40px}.final-grid>div:first-child{position:static;padding-top:0}}
 
   /* Footer */
   footer{background:#100A09;padding:56px 0 30px;color:#B7AA98;font-size:.95rem}
@@ -435,6 +438,7 @@
   </section>
 
   <section id="quote" class="final" aria-labelledby="final-title">
+    <canvas class="snow" aria-hidden="true"></canvas>
     <div class="wrap final-grid">
       <div>
         <span class="kicker">Ready when you are</span>
@@ -544,35 +548,39 @@ document.getElementById('yr').textContent=new Date().getFullYear();
     setTimeout(step,Math.random()*1500);
   });
 })();
-// Gentle snowfall inside the green booking bar only
-(function(){
-  var bar=document.querySelector('.announce'), cv=bar&&bar.querySelector('.snow'); if(!cv) return;
-  var ctx=cv.getContext('2d'), flakes=[], W=0, H=0, dpr=Math.min(window.devicePixelRatio||1,2);
+// Gentle snowfall: green booking bar + quote section background
+function letItSnow(box,opts){
+  var cv=box&&box.querySelector(':scope > .snow'); if(!cv) return;
+  var ctx=cv.getContext('2d'), flakes=[], W=0, H=0, dpr=Math.min(window.devicePixelRatio||1,2), visible=true, running=false;
   var still=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function make(y){return {x:Math.random()*W,y:y!=null?y:Math.random()*H,r:0.8+Math.random()*1.8,
-    v:0.25+Math.random()*0.55,d:Math.random()*Math.PI*2,s:0.6+Math.random()*0.8,o:0.45+Math.random()*0.5};}
+  function make(y){return {x:Math.random()*W,y:y!=null?y:Math.random()*H,r:opts.rMin+Math.random()*(opts.rMax-opts.rMin),
+    v:opts.vMin+Math.random()*(opts.vMax-opts.vMin),d:Math.random()*Math.PI*2,s:0.6+Math.random()*0.8,o:0.35+Math.random()*0.55};}
   function size(){
-    W=bar.clientWidth; H=bar.clientHeight; cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
-    var n=Math.round(W/14); flakes=[]; for(var i=0;i<n;i++) flakes.push(make());
+    W=box.clientWidth; H=box.clientHeight; cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+    var n=Math.min(opts.max,Math.round(W*H/opts.area)); flakes=[]; for(var i=0;i<n;i++) flakes.push(make());
+    if(still) draw();
   }
   function draw(){
-    ctx.clearRect(0,0,W,H);
-    for(var i=0;i<flakes.length;i++){
-      var f=flakes[i];
-      ctx.globalAlpha=f.o; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
-    }
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff';
+    for(var i=0;i<flakes.length;i++){var f=flakes[i]; ctx.globalAlpha=f.o; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();}
   }
   function tick(){
+    if(!visible){running=false;return;}
     for(var i=0;i<flakes.length;i++){
-      var f=flakes[i]; f.d+=0.012*f.s; f.y+=f.v; f.x+=Math.sin(f.d)*0.35;
-      if(f.y-f.r>H){ flakes[i]=make(-3); }
-      if(f.x<-4) f.x=W+4; else if(f.x>W+4) f.x=-4;
+      var f=flakes[i]; f.d+=0.012*f.s; f.y+=f.v; f.x+=Math.sin(f.d)*opts.sway;
+      if(f.y-f.r>H) flakes[i]=make(-4);
+      if(f.x<-6) f.x=W+6; else if(f.x>W+6) f.x=-6;
     }
     draw(); requestAnimationFrame(tick);
   }
+  function start(){ if(!running && !still){running=true; requestAnimationFrame(tick);} }
   size(); window.addEventListener('resize',size);
-  if(still) draw(); else requestAnimationFrame(tick);
-})();
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(function(es){visible=es[0].isIntersecting; if(visible) start();}).observe(box);
+  } else start();
+}
+letItSnow(document.querySelector('.announce'),{area:560,max:200,rMin:0.8,rMax:2.6,vMin:0.25,vMax:0.8,sway:0.35});
+letItSnow(document.querySelector('.final'),{area:5200,max:260,rMin:1,rMax:3.4,vMin:0.35,vMax:1.1,sway:0.5});
 // ---- House photo: shrink on the phone, then email it straight to Gmail via Google Apps Script ----
 var PHOTO_ENDPOINT='https://script.google.com/macros/s/AKfycbxQTr_N2qPRFJ4SF60Hgs69iqh9exsbqk1OAlY1IZLOtl_tSwyM7lDivbiSioAjC8AsTA/exec';
 function sendPhoto(form){
