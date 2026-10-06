@@ -30,7 +30,7 @@ function setup() {
     st.getRange(1, 1, 7, 3).setValues([
       ['Setting', 'Value', 'Notes'],
       ['App PIN', '1225', 'Code you type into the Estimates app. Change it to your own.'],
-      ['Office email', BRAND.email, "Who gets the 'Approved - add to QuickBooks' emails. Put your wife's email here."],
+      ['Office email', BRAND.email, 'Older setting. Only used if Estimates inbox is blank.'],
       ['Minimum project', 500, 'Smallest total you will quote. Use 0 for no minimum.'],
       ['Tax rate %', 0, 'Leave 0 unless your accountant says to charge sales tax.'],
       ['Estimate valid (days)', 30, 'Shown on the estimate.'],
@@ -38,6 +38,12 @@ function setup() {
     ]);
     st.getRange('A1:C1').setFontWeight('bold'); st.setColumnWidth(1, 170); st.setColumnWidth(2, 260); st.setColumnWidth(3, 420);
   }
+
+  // Add any newer settings rows without touching existing values
+  var have = st.getRange(1, 1, st.getLastRow(), 1).getValues().map(function (r) { return String(r[0]).trim(); });
+  [['Estimates inbox', 'info.friscolights@gmail.com', 'Gets copies of every estimate you send, plus customer replies to estimates.'],
+   ['Approved jobs inbox', BRAND.email, "Gets the 'Approved - add to QuickBooks' email once a customer approves."]
+  ].forEach(function (r) { if (have.indexOf(r[0]) < 0) st.appendRow(r); });
 
   var pr = ss.getSheetByName('Prices');
   if (!pr) {
@@ -102,8 +108,9 @@ function handleWebsitePhoto(d) {
   var photo = Utilities.newBlob(Utilities.base64Decode(d.photo), type, d.filename || 'house-photo.jpg');
   var c = function (v) { return String(v || '').substring(0, 200); };
   var name = c(d.name), phone = c(d.phone), email = c(d.email), address = c(d.address);
+  var inbox; try { inbox = settings().estimatesInbox; } catch (e) { inbox = Session.getEffectiveUser().getEmail(); }
   var msg = {
-    to: Session.getEffectiveUser().getEmail(),
+    to: inbox,
     subject: 'House photo for lighting preview: ' + (name || 'New customer') + (address ? ' - ' + address : ''),
     body: 'A customer added a photo of their house to their quote request.\n\nName: ' + name + '\nPhone: ' + phone +
       '\nEmail: ' + email + '\nAddress: ' + address + '\n\nThe photo is attached. Their full quote request arrives separately from Formspree.',
@@ -161,9 +168,9 @@ function createEstimate(d) {
     sendCustomerEstimate(est, pdf, photo);
     emailed = true;
   }
-  // Copy to the owner inbox either way
+  // Copy to the estimates inbox (keeps the main inbox clean)
   MailApp.sendEmail({
-    to: Session.getEffectiveUser().getEmail(),
+    to: settings().estimatesInbox,
     subject: (d.approvedOnSite ? 'Estimate approved on site: ' : 'Estimate sent: ') + est.id + ' - ' + est.name + ' - $' + money(est.total),
     htmlBody: '<p>' + (emailed ? 'Sent to ' + esc(est.email) + '.' : (d.approvedOnSite ? 'Marked approved on site.' : '<b>No customer email on file</b> - the PDF is attached so you can text or print it.')) + '</p>' + summaryTable(est),
     attachments: photo ? [pdf, photo] : [pdf]
@@ -205,8 +212,7 @@ function approveEstimate(id, token, via, est, pdf, photo) {
 
   // Office (QuickBooks) email
   MailApp.sendEmail({
-    to: s.office,
-    cc: s.office === Session.getEffectiveUser().getEmail() ? '' : Session.getEffectiveUser().getEmail(),
+    to: s.approvedInbox,
     subject: '\u2705 Approved: ' + est.name + ' - $' + money(est.total) + ' - add to QuickBooks (' + est.id + ')',
     htmlBody: officeEmail(est, via),
     attachments: att
@@ -214,7 +220,7 @@ function approveEstimate(id, token, via, est, pdf, photo) {
   // Customer thank-you
   if (validEmail(est.email)) {
     MailApp.sendEmail({
-      to: est.email, name: BRAND.name, replyTo: BRAND.email,
+      to: est.email, name: BRAND.name, replyTo: s.approvedInbox,
       subject: 'You\u2019re on the schedule! Estimate ' + est.id + ' approved',
       htmlBody: wrap('<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 10px">Thank you, ' + esc(firstName(est.name)) + '!</h2>' +
         '<p>Your estimate <b>' + est.id + '</b> for <b>$' + money(est.total) + '</b> is approved. We\u2019ll reach out shortly to schedule your installation.</p>' +
@@ -253,7 +259,7 @@ function sendCustomerEstimate(est, pdf, photo) {
     '<p style="color:#6E615A;font-size:13px">Valid until ' + fmtDate(est.validUntil) + '. ' + esc(est.footer) + ' The full estimate is attached as a PDF.</p>' +
     '<p>Questions or changes? Just reply to this email or call/text <b>' + BRAND.phone + '</b>.</p>'
   );
-  MailApp.sendEmail({ to: est.email, name: BRAND.name, replyTo: BRAND.email,
+  MailApp.sendEmail({ to: est.email, name: BRAND.name, replyTo: settings().estimatesInbox,
     subject: 'Your Christmas lighting estimate ' + est.id + ' - $' + money(est.total),
     htmlBody: html, attachments: photo ? [pdf, photo] : [pdf] });
 }
@@ -326,13 +332,15 @@ function settings() {
   var v = {}; sheet('Settings').getDataRange().getValues().slice(1).forEach(function (r) { v[String(r[0]).trim()] = r[1]; });
   return {
     pin: String(v['App PIN'] || '').trim(),
-    office: validEmail(String(v['Office email'] || '')) ? String(v['Office email']).trim() : Session.getEffectiveUser().getEmail(),
+    estimatesInbox: pickEmail(v['Estimates inbox'], v['Office email']),
+    approvedInbox: pickEmail(v['Approved jobs inbox'], BRAND.email),
     minimum: Number(v['Minimum project']) || 0,
     taxRate: Number(v['Tax rate %']) || 0,
     validDays: Number(v['Estimate valid (days)']) || 30,
     footer: String(v['Footer note'] || '')
   };
 }
+function pickEmail(a, b) { a = String(a || '').trim(); b = String(b || '').trim(); return validEmail(a) ? a : (validEmail(b) ? b : Session.getEffectiveUser().getEmail()); }
 function publicSettings() { var s = settings(); return { minimum: s.minimum, taxRate: s.taxRate }; }
 function requirePin(pin) {
   var s = settings();
