@@ -90,7 +90,7 @@ function doGet(e) {
     if (p.a === 'approve') return approvePage(p.id, p.t);
     if (p.a === 'prices') { requirePin(p.pin); return json({ ok: true, items: getPrices(), settings: publicSettings() }); }
     if (p.a === 'recent') { requirePin(p.pin); return json({ ok: true, leads: openLeads(), estimates: recentEstimates(20) }); }
-    if (p.a === 'lead') { requirePin(p.pin); return json(leadDetail(p.id)); }
+    if (p.a === 'lead') { requirePin(p.pin); return json(leadDetail(p.id, p.photo === '1')); }
     return text('ok');
   } catch (err) { return json({ ok: false, error: String(err.message || err) }); }
 }
@@ -197,11 +197,15 @@ function openLeads() {
   return sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues()
     .filter(function (r) { return r[h['Status']] === 'New'; }).reverse().map(function (r) { return leadObj_(r, h); });
 }
-function leadDetail(id) {
+function leadDetail(id, withPhoto) {
   var sh = leadsSheet_(), row = findLeadRow(id); if (!row) return { ok: false, error: 'Lead not found' };
   var h = headerIndex(sh), r = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0], lead = leadObj_(r, h);
-  if (r[h['Photo file']]) {
-    try { var b = DriveApp.getFileById(r[h['Photo file']]).getBlob(); lead.photo = Utilities.base64Encode(b.getBytes()); lead.photoType = b.getContentType(); } catch (e) {}
+  if (withPhoto && r[h['Photo file']]) {
+    try {
+      var b = DriveApp.getFileById(r[h['Photo file']]).getBlob();
+      if (b.getBytes().length > 6000000) lead.photoError = 'Photo is too large to show here.';
+      else { lead.photo = Utilities.base64Encode(b.getBytes()); lead.photoType = b.getContentType(); }
+    } catch (e) { lead.photoError = 'Could not open the photo: ' + e; }
   }
   return { ok: true, lead: lead };
 }

@@ -373,8 +373,16 @@ function startFromLead(id,btn){
     var colors=L.color==='Other color combination'?(L.combo==='Custom'?'Custom: '+L.customColors:L.combo):L.color;
     var rows=[['Received',L.date],['Property',L.propertyType],['Colors',colors],['Wants',L.request]].filter(function(x){return x[1]});
     var dl=$('#reqList');dl.innerHTML='';rows.forEach(function(x){var dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=x[0];dd.textContent=x[1];dl.appendChild(dt);dl.appendChild(dd);});
-    if(L.photo){$('#reqPhoto').src='data:'+(L.photoType||'image/jpeg')+';base64,'+L.photo;$('#reqPhoto').hidden=false;$('#reqPhotoHint').hidden=false;}
     $('#reqCard').hidden=false;goTab('new');
+    if(L.hasPhoto){
+      var hint=$('#reqPhotoHint');hint.textContent='Loading their house photo...';hint.hidden=false;
+      api({a:'lead',pin:state.pin,id:L.id,photo:'1'}).then(function(p){
+        if(state.leadId!==L.id)return;
+        if(p.ok&&p.lead.photo){$('#reqPhoto').src='data:'+(p.lead.photoType||'image/jpeg')+';base64,'+p.lead.photo;$('#reqPhoto').hidden=false;
+          hint.textContent='Press and hold the photo to save it, mark it up, then add it below as your preview.';}
+        else hint.textContent='Couldn\'t load the photo here. It\'s also in your info.friscolights inbox.';
+      }).catch(function(){if(state.leadId===L.id)hint.textContent='Couldn\'t load the photo here. It\'s also in your info.friscolights inbox.';});
+    }
   }).catch(function(){btn.disabled=false;btn.textContent='Start estimate';alert('No connection.');});
 }
 function clearLead(){state.leadId='';$('#fromLead').hidden=true;$('#reqCard').hidden=true;$('#reqPhoto').hidden=true;$('#reqPhotoHint').hidden=true;$('#reqPhoto').removeAttribute('src');}
