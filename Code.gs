@@ -12,7 +12,8 @@ var BRAND = {
   phone: '(972) 556-5120',
   email: 'friscolights@gmail.com',
   site: 'https://friscolights.com',
-  red: '#A2021F', gold: '#AC893E', ink: '#2B201C'
+  red: '#A2021F', gold: '#AC893E', ink: '#2B201C',
+  logo: 'https://friscolights.com/email-logo.jpg'
 };
 var PROPS = PropertiesService.getScriptProperties();
 var LEAD_HEADERS = ['Lead #', 'Received', 'Status', 'Name', 'Phone', 'Email', 'Address', 'Street', 'City', 'ZIP',
@@ -77,6 +78,8 @@ function setup() {
   leadsSheet_(ss);
   photoFolder_();
   if (headerIndex(es)['Lead #'] === undefined) es.getRange(1, es.getLastColumn() + 1).setValue('Lead #').setFontWeight('bold');
+  if (headerIndex(es)['Preview file'] === undefined) es.getRange(1, es.getLastColumn() + 1).setValue('Preview file').setFontWeight('bold');
+  Logger.log(logoDataUri_() ? 'Logo found on friscolights.com' : 'Logo not found yet - upload email-logo.jpg to GitHub');
   var s1 = ss.getSheetByName('Sheet1'); if (s1 && ss.getSheets().length > 1) ss.deleteSheet(s1);
 
   Logger.log('All set! Your sheet: ' + ss.getUrl());
@@ -246,6 +249,12 @@ function createEstimate(d) {
     est.lines.map(function (l) { return l.desc + (l.unit ? ' (' + l.qty + ' ' + l.unit + ')' : '') + ' $' + money(l.amount); }).join('\n'),
     est.subtotal, est.discount, est.tax, est.total, est.notes, '', '', JSON.stringify(est.lines), token];
   var eh = headerIndex(sh); if (eh['Lead #'] !== undefined) rowVals[eh['Lead #']] = clean(d.leadId);
+  if (d.photo && d.photo.length < 12000000) {
+    est.photoB64 = d.photo;
+    if (eh['Preview file'] !== undefined) {
+      try { rowVals[eh['Preview file']] = photoFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(d.photo), 'image/jpeg', id + ' - lighting preview.jpg')).getId(); } catch (e) {}
+    }
+  }
   for (var i = 0; i < rowVals.length; i++) if (rowVals[i] === undefined) rowVals[i] = '';
   sh.appendRow(rowVals);
   if (d.leadId) { try { setLeadStatus(clean(d.leadId), 'Estimated', id); } catch (e) {} }
@@ -383,32 +392,93 @@ function summaryTable(est) {
     (est.tax ? tot('Tax', '$' + money(est.tax)) : '') + tot('Total', '$' + money(est.total), true) + '</table>';
 }
 
+function logoDataUri_() {
+  var cache = CacheService.getScriptCache(), hit = cache.get('logo64');
+  if (hit) return 'data:image/jpeg;base64,' + hit;
+  try {
+    var r = UrlFetchApp.fetch(BRAND.logo, { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) return '';
+    var b64 = Utilities.base64Encode(r.getBlob().getBytes());
+    if (b64.length < 100000) cache.put('logo64', b64, 21600);
+    return 'data:image/jpeg;base64,' + b64;
+  } catch (e) { return ''; }
+}
+
+function bulbRow_(n) {
+  var c = ['#D21F2C', '#1E9E4A', '#E8B23A', '#2F6FD6', '#D21F2C', '#1E9E4A', '#E8B23A'], out = '';
+  for (var i = 0; i < n; i++) out += '<span style="color:' + c[i % c.length] + ';font-size:15px;letter-spacing:9px">&#9679;</span>';
+  return out;
+}
+
 function estimatePdf(est) {
-  var td = 'padding:8px;border-bottom:1px solid #E6DAC6;font-size:12px;';
-  var rows = est.lines.map(function (l) {
-    return '<tr><td style="' + td + '">' + esc(l.desc) + '</td><td style="' + td + 'text-align:center">' + (l.unit ? l.qty + ' ' + l.unit : '') +
-      '</td><td style="' + td + 'text-align:right">' + (l.unit ? '$' + money(l.rate) : '') + '</td><td style="' + td + 'text-align:right">$' + money(l.amount) + '</td></tr>';
+  var logo = logoDataUri_(), dark = '#140D0B', cream = '#FBF7F0', paper = '#F3EADB', line = '#E6DAC6';
+  var head = logo
+    ? '<img src="' + logo + '" style="height:92px">'
+    : '<div style="font-family:Georgia,serif;font-size:30px;color:#E8BE62;font-weight:bold">Frisco Christmas Lights</div>';
+  var rows = est.lines.map(function (l, i) {
+    var bg = i % 2 ? cream : '#FFFFFF';
+    return '<tr><td style="background:' + bg + ';padding:10px 12px;font-size:12.5px;border-bottom:1px solid ' + line + '"><b>' + esc(l.desc) + '</b></td>' +
+      '<td style="background:' + bg + ';padding:10px 8px;font-size:12px;text-align:center;color:#6E615A;border-bottom:1px solid ' + line + '">' + (l.unit ? l.qty + ' ' + l.unit : '') + '</td>' +
+      '<td style="background:' + bg + ';padding:10px 8px;font-size:12px;text-align:right;color:#6E615A;border-bottom:1px solid ' + line + '">' + (l.unit ? '$' + money(l.rate) : '') + '</td>' +
+      '<td style="background:' + bg + ';padding:10px 12px;font-size:12.5px;text-align:right;border-bottom:1px solid ' + line + '"><b>$' + money(l.amount) + '</b></td></tr>';
   }).join('');
-  var tr = function (k, v, b) { return '<tr><td colspan="3" style="padding:6px 8px;text-align:right;font-size:' + (b ? '15px;font-weight:bold' : '12px') + '">' + k + '</td><td style="padding:6px 8px;text-align:right;font-size:' + (b ? '15px;font-weight:bold;color:' + BRAND.red : '12px') + '">' + v + '</td></tr>'; };
-  var html = '<html><body style="font-family:Helvetica,Arial,sans-serif;color:#2B201C;margin:28px">' +
-    '<table style="width:100%"><tr><td><div style="font-family:Georgia,serif;font-size:26px;color:' + BRAND.red + ';font-weight:bold">Frisco Christmas Lights</div>' +
-    '<div style="font-size:11px;color:#6E615A">' + BRAND.legal + ' \u2022 ' + BRAND.phone + ' \u2022 ' + BRAND.email + ' \u2022 friscolights.com</div></td>' +
-    '<td style="text-align:right;vertical-align:top"><div style="font-size:20px;font-weight:bold;color:' + BRAND.gold + '">ESTIMATE</div><div style="font-size:12px">' + est.id + '<br>' + fmtDate(est.created) + '<br>Valid until ' + fmtDate(est.validUntil) + '</div></td></tr></table>' +
-    '<div style="height:3px;background:' + BRAND.red + ';margin:14px 0 18px"></div>' +
-    '<div style="font-size:11px;color:#6E615A;letter-spacing:1px">PREPARED FOR</div><div style="font-size:14px;font-weight:bold;margin-top:2px">' + esc(est.name) + '</div>' +
-    '<div style="font-size:12px">' + esc(est.street) + ', ' + esc(est.city) + ', TX ' + esc(est.zip) + '<br>' + esc(est.phone) + (est.email ? ' \u2022 ' + esc(est.email) : '') + '</div>' +
-    '<table style="width:100%;border-collapse:collapse;margin-top:20px"><tr style="background:#F3EADB"><th style="text-align:left;padding:8px;font-size:11px">DESCRIPTION</th><th style="padding:8px;font-size:11px">QTY</th><th style="text-align:right;padding:8px;font-size:11px">RATE</th><th style="text-align:right;padding:8px;font-size:11px">AMOUNT</th></tr>' +
-    rows + (est.discount ? tr('Subtotal', '$' + money(est.subtotal)) + tr('Discount', '-$' + money(est.discount)) : '') + (est.tax ? tr('Tax', '$' + money(est.tax)) : '') + tr('Total', '$' + money(est.total), true) + '</table>' +
-    (est.notes ? '<div style="margin-top:18px;padding:10px 12px;background:#FBF7F0;border-left:3px solid ' + BRAND.gold + ';font-size:12px"><b>Notes:</b> ' + esc(est.notes) + '</div>' : '') +
-    '<p style="font-size:11px;color:#6E615A;margin-top:22px">' + esc(est.footer) + '</p>' +
-    '<p style="font-size:11px;color:#6E615A">To approve, use the Approve button in your estimate email or call/text ' + BRAND.phone + '.</p></body></html>';
+  var sub = function (k, v) { return '<tr><td colspan="3" style="padding:6px 12px;text-align:right;font-size:12px;color:#6E615A">' + k + '</td><td style="padding:6px 12px;text-align:right;font-size:12px">' + v + '</td></tr>'; };
+  var included = String(est.footer || '').replace(/^Price includes\s*/i, '').replace(/\.$/, '').split(/,\s*(?:and\s+)?|\s+and\s+/).filter(String);
+  var incl = included.map(function (x) { return '<td style="padding:4px 14px 4px 0;font-size:11.5px;white-space:nowrap"><span style="color:' + BRAND.red + ';font-weight:bold">&#10003;</span> ' + esc(x.charAt(0).toUpperCase() + x.slice(1)) + '</td>'; }).join('');
+
+  var html = '<html><body style="margin:0;font-family:Helvetica,Arial,sans-serif;color:#2B201C">' +
+    // header band
+    '<table style="width:100%;border-collapse:collapse"><tr><td style="background:' + dark + ';padding:18px 26px">' +
+    '<table style="width:100%;border-collapse:collapse"><tr><td style="vertical-align:middle">' + head + '</td>' +
+    '<td style="vertical-align:middle;text-align:right;color:#F3E6C8"><div style="font-family:Georgia,serif;font-size:26px;color:#E8BE62;letter-spacing:3px">ESTIMATE</div>' +
+    '<div style="font-size:12px;margin-top:6px">' + est.id + '</div><div style="font-size:11px;color:#CDBFA6">' + fmtDate(est.created) + ' &nbsp;\u2022&nbsp; Valid until ' + fmtDate(est.validUntil) + '</div></td></tr></table>' +
+    '</td></tr><tr><td style="background:' + BRAND.red + ';height:5px;font-size:1px">&nbsp;</td></tr>' +
+    '<tr><td style="text-align:center;padding:6px 0 0">' + bulbRow_(15) + '</td></tr></table>' +
+
+    '<div style="padding:10px 26px 0">' +
+    // customer + contact
+    '<table style="width:100%;border-collapse:collapse;margin-top:6px"><tr>' +
+    '<td style="width:58%;background:' + cream + ';border-left:4px solid ' + BRAND.gold + ';padding:12px 16px;vertical-align:top">' +
+    '<div style="font-size:10px;letter-spacing:2px;color:' + BRAND.gold + ';font-weight:bold">PREPARED FOR</div>' +
+    '<div style="font-family:Georgia,serif;font-size:19px;color:' + BRAND.red + ';margin-top:4px">' + esc(est.name) + '</div>' +
+    '<div style="font-size:12px;margin-top:3px;line-height:1.5">' + esc(est.street) + ', ' + esc(est.city) + ', TX ' + esc(est.zip) + '<br>' + esc(est.phone) + (est.email ? ' &nbsp;\u2022&nbsp; ' + esc(est.email) : '') + '</div></td>' +
+    '<td style="width:4%"></td>' +
+    '<td style="vertical-align:top;padding:12px 4px;font-size:11.5px;line-height:1.7;color:#6E615A">' +
+    '<div style="font-size:10px;letter-spacing:2px;color:' + BRAND.gold + ';font-weight:bold">QUESTIONS?</div>' +
+    'Call or text <b style="color:#2B201C">' + BRAND.phone + '</b><br>' + BRAND.email + '<br>friscolights.com</td></tr></table>' +
+
+    // items
+    '<div style="font-family:Georgia,serif;font-size:17px;color:' + BRAND.red + ';margin:20px 0 8px">Your holiday lighting</div>' +
+    '<table style="width:100%;border-collapse:collapse"><tr>' +
+    '<td style="background:' + paper + ';padding:8px 12px;font-size:10px;letter-spacing:1px;font-weight:bold">DESCRIPTION</td>' +
+    '<td style="background:' + paper + ';padding:8px;font-size:10px;letter-spacing:1px;font-weight:bold;text-align:center">QTY</td>' +
+    '<td style="background:' + paper + ';padding:8px;font-size:10px;letter-spacing:1px;font-weight:bold;text-align:right">RATE</td>' +
+    '<td style="background:' + paper + ';padding:8px 12px;font-size:10px;letter-spacing:1px;font-weight:bold;text-align:right">AMOUNT</td></tr>' +
+    rows +
+    (est.discount ? sub('Subtotal', '$' + money(est.subtotal)) + sub('Discount', '-$' + money(est.discount)) : '') +
+    (est.tax ? sub('Tax', '$' + money(est.tax)) : '') +
+    '<tr><td colspan="3" style="background:' + BRAND.red + ';padding:12px;text-align:right;color:#fff;font-family:Georgia,serif;font-size:16px">Total</td>' +
+    '<td style="background:' + BRAND.red + ';padding:12px;text-align:right;color:#fff;font-size:18px;font-weight:bold">$' + money(est.total) + '</td></tr></table>' +
+
+    (incl ? '<table style="border-collapse:collapse;margin-top:12px"><tr>' + incl + '</tr></table>' : '') +
+    (est.notes ? '<div style="margin-top:14px;padding:10px 14px;background:' + cream + ';border-left:4px solid ' + BRAND.gold + ';font-size:12px;line-height:1.5"><b>Notes:</b> ' + esc(est.notes) + '</div>' : '') +
+
+    (est.photoB64 ? '<div style="font-family:Georgia,serif;font-size:17px;color:' + BRAND.red + ';margin:20px 0 8px">Your lighting preview</div>' +
+      '<img src="data:image/jpeg;base64,' + est.photoB64 + '" style="width:100%;border:3px solid ' + dark + '">' : '') +
+
+    // footer
+    '<div style="text-align:center;margin-top:22px">' + bulbRow_(9) + '</div>' +
+    '<div style="text-align:center;font-family:Georgia,serif;font-style:italic;font-size:18px;color:' + BRAND.red + ';margin-top:4px">Thank you for choosing Frisco Christmas Lights!</div>' +
+    '<div style="text-align:center;font-size:11px;color:#6E615A;margin-top:6px">To approve, tap <b>Approve estimate</b> in your email, or call/text ' + BRAND.phone + '.</div>' +
+    '<div style="text-align:center;font-size:10px;color:#9A8C7E;margin-top:4px">' + BRAND.legal + ' \u2022 friscolights.com</div>' +
+    '</div></body></html>';
   return Utilities.newBlob(html, 'text/html', est.id + '.html').getAs('application/pdf').setName('Frisco-Christmas-Lights-' + est.id + '.pdf');
 }
 
 function wrap(inner) {
   return '<div style="background:#FBF7F0;padding:24px 12px;font-family:Helvetica,Arial,sans-serif;color:#2B201C">' +
-    '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;border-top:5px solid ' + BRAND.red + ';padding:26px 24px">' +
-    '<div style="font-family:Georgia,serif;font-size:13px;letter-spacing:2px;color:' + BRAND.gold + ';margin-bottom:16px">FRISCO CHRISTMAS LIGHTS</div>' + inner +
+    '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border-bottom:5px solid ' + BRAND.red + ';padding:26px 24px">' +
+    '<div style="background:#140D0B;margin:-26px -24px 18px;padding:14px 20px;border-radius:0;text-align:center"><img src="' + BRAND.logo + '" alt="Frisco Christmas Lights" style="height:64px;max-width:100%"></div>' + inner +
     '<p style="margin-top:26px;font-size:12px;color:#6E615A">' + BRAND.legal + ' \u2022 ' + BRAND.phone + ' \u2022 <a href="' + BRAND.site + '" style="color:' + BRAND.red + '">friscolights.com</a></p></div></div>';
 }
 
@@ -455,7 +525,8 @@ function estFromRow(v, h) {
     street: v[h['Street']], city: v[h['City']], zip: String(v[h['ZIP']]), state: 'TX',
     lines: JSON.parse(v[h['Items JSON']] || '[]'), subtotal: Number(v[h['Subtotal']]) || 0, discount: Number(v[h['Discount']]) || 0,
     tax: Number(v[h['Tax']]) || 0, total: Number(v[h['Total']]) || 0, notes: v[h['Notes']],
-    validUntil: new Date(created.getTime() + s.validDays * 864e5), footer: s.footer, token: v[h['Token']] };
+    validUntil: new Date(created.getTime() + s.validDays * 864e5), footer: s.footer, token: v[h['Token']],
+    photoB64: (function () { try { return h['Preview file'] !== undefined && v[h['Preview file']] ? Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()) : ''; } catch (e) { return ''; } })() };
 }
 function recentEstimates(n) {
   var sh = sheet('Estimates'), last = sh.getLastRow(); if (last < 2) return [];
