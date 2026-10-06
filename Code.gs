@@ -15,6 +15,8 @@ var BRAND = {
   red: '#A2021F', gold: '#AC893E', ink: '#2B201C'
 };
 var PROPS = PropertiesService.getScriptProperties();
+var LEAD_HEADERS = ['Lead #', 'Received', 'Status', 'Name', 'Phone', 'Email', 'Address', 'Street', 'City', 'ZIP',
+  'Property type', 'Light color', 'Color combination', 'Custom colors', 'Request', 'Photo file', 'Estimate #'];
 var EST_HEADERS = ['Estimate #', 'Created', 'Status', 'Customer', 'Phone', 'Email', 'Street', 'City', 'ZIP',
   'Items', 'Subtotal', 'Discount', 'Tax', 'Total', 'Notes', 'Approved at', 'Approved via', 'Items JSON', 'Token'];
 
@@ -72,6 +74,9 @@ function setup() {
     es.setFrozenRows(1);
     es.hideColumns(EST_HEADERS.indexOf('Items JSON') + 1, 2);
   }
+  leadsSheet_(ss);
+  photoFolder_();
+  if (headerIndex(es)['Lead #'] === undefined) es.getRange(1, es.getLastColumn() + 1).setValue('Lead #').setFontWeight('bold');
   var s1 = ss.getSheetByName('Sheet1'); if (s1 && ss.getSheets().length > 1) ss.deleteSheet(s1);
 
   Logger.log('All set! Your sheet: ' + ss.getUrl());
@@ -84,7 +89,8 @@ function doGet(e) {
   try {
     if (p.a === 'approve') return approvePage(p.id, p.t);
     if (p.a === 'prices') { requirePin(p.pin); return json({ ok: true, items: getPrices(), settings: publicSettings() }); }
-    if (p.a === 'recent') { requirePin(p.pin); return json({ ok: true, estimates: recentEstimates(20) }); }
+    if (p.a === 'recent') { requirePin(p.pin); return json({ ok: true, leads: openLeads(), estimates: recentEstimates(20) }); }
+    if (p.a === 'lead') { requirePin(p.pin); return json(leadDetail(p.id)); }
     return text('ok');
   } catch (err) { return json({ ok: false, error: String(err.message || err) }); }
 }
@@ -92,33 +98,112 @@ function doGet(e) {
 function doPost(e) {
   try {
     var d = JSON.parse(e.postData.contents);
-    if (d.key === 'fcl-photo') return handleWebsitePhoto(d);       // website quote form
+    if (d.key === 'fcl-lead' || d.key === 'fcl-photo') return handleWebsiteLead(d);   // website quote form
     requirePin(d.pin);
     if (d.a === 'estimate') return json(createEstimate(d));
     if (d.a === 'approve') { var r = approveEstimate(d.id, null, 'Marked approved in app'); return json(r); }
+    if (d.a === 'dismiss') return json(setLeadStatus(d.id, 'Dismissed'));
     return json({ ok: false, error: 'Unknown action' });
   } catch (err) { return json({ ok: false, error: String(err.message || err) }); }
 }
 
-/* ======================= WEBSITE PHOTO (unchanged behavior) ======================= */
-function handleWebsitePhoto(d) {
+/* ======================= WEBSITE LEADS (+ house photo) ======================= */
+function handleWebsiteLead(d) {
   if (d._gotcha) return text('ok');
-  if (!d.photo || d.photo.length > 12000000) return text('no photo or too large');
-  var type = /^image\//.test(d.type || '') ? d.type : 'image/jpeg';
-  var photo = Utilities.newBlob(Utilities.base64Decode(d.photo), type, d.filename || 'house-photo.jpg');
-  var c = function (v) { return String(v || '').substring(0, 200); };
+  var c = function (v, n) { return clean(v, n || 200); };
   var name = c(d.name), phone = c(d.phone), email = c(d.email), address = c(d.address);
+  if (!name && !phone && !d.photo) return text('empty');
+
   var inbox; try { inbox = settings().estimatesInbox; } catch (e) { inbox = Session.getEffectiveUser().getEmail(); }
-  var msg = {
-    to: inbox,
-    subject: 'House photo for lighting preview: ' + (name || 'New customer') + (address ? ' - ' + address : ''),
-    body: 'A customer added a photo of their house to their quote request.\n\nName: ' + name + '\nPhone: ' + phone +
-      '\nEmail: ' + email + '\nAddress: ' + address + '\n\nThe photo is attached. Their full quote request arrives separately from Formspree.',
-    attachments: [photo]
-  };
-  if (validEmail(email)) msg.replyTo = email;
-  MailApp.sendEmail(msg);
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  var leadId = '', photoBlob = null, fileId = '';
+  try {
+    if (d.photo && d.photo.length < 12000000) {
+      var type = /^image\//.test(d.type || '') ? d.type : 'image/jpeg';
+      photoBlob = Utilities.newBlob(Utilities.base64Decode(d.photo), type, d.filename || 'house-photo.jpg');
+    }
+    var sh = leadsSheet_(), parts = parseAddress(address);
+    leadId = 'L-' + (1000 + sh.getLastRow());
+    if (photoBlob) {
+      var f = photoFolder_().createFile(photoBlob.copyBlob().setName(leadId + ' - ' + (name || 'house') + '.jpg'));
+      fileId = f.getId();
+    }
+    sh.appendRow([leadId, new Date(), 'New', name, phone, email, address, parts.street, parts.city, parts.zip,
+      c(d.type_prop || d.propertyType), c(d.color), c(d.color_combination), c(d.custom_colors), c(d.message, 2000), fileId, '']);
+  } finally { lock.releaseLock(); }
+
+  if (photoBlob) {
+    var msg = {
+      to: inbox,
+      subject: 'House photo for lighting preview: ' + (name || 'New customer') + (address ? ' - ' + address : '') + ' (' + leadId + ')',
+      body: 'A customer added a photo of their house to their quote request.\n\nName: ' + name + '\nPhone: ' + phone +
+        '\nEmail: ' + email + '\nAddress: ' + address + '\n\nThe photo is attached, and this lead is waiting in the Estimates app.',
+      attachments: [photoBlob]
+    };
+    if (validEmail(email)) msg.replyTo = email;
+    MailApp.sendEmail(msg);
+  }
   return text('ok');
+}
+
+function parseAddress(a) {
+  a = String(a || '').trim();
+  var zip = (a.match(/\b(\d{5})(?:-\d{4})?\b(?!.*\b\d{5}\b)/) || [])[1] || '';
+  var parts = a.split(',').map(function (x) { return x.trim(); }).filter(String);
+  var street = parts[0] || a, city = '';
+  if (parts.length > 1) city = parts[1].replace(/\b(TX|Texas)\b/i, '').replace(/\d{5}(-\d{4})?/, '').trim();
+  return { street: street, city: city, zip: zip };
+}
+
+function leadsSheet_(ss) {
+  ss = ss || ss_();
+  var sh = ss.getSheetByName('Leads');
+  if (!sh) {
+    sh = ss.insertSheet('Leads');
+    sh.getRange(1, 1, 1, LEAD_HEADERS.length).setValues([LEAD_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function photoFolder_() {
+  var id = PROPS.getProperty('PHOTO_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  var f = DriveApp.createFolder('Frisco Lights - House photos');
+  PROPS.setProperty('PHOTO_FOLDER_ID', f.getId());
+  return f;
+}
+function findLeadRow(id) {
+  var sh = leadsSheet_(), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues();
+  for (var i = ids.length - 1; i >= 1; i--) if (ids[i][0] === id) return i + 1;
+  return 0;
+}
+function setLeadStatus(id, status, estimateId) {
+  var sh = leadsSheet_(), row = findLeadRow(id); if (!row) return { ok: false, error: 'Lead not found' };
+  var h = headerIndex(sh);
+  sh.getRange(row, h['Status'] + 1).setValue(status);
+  if (estimateId) sh.getRange(row, h['Estimate #'] + 1).setValue(estimateId);
+  return { ok: true };
+}
+function leadObj_(r, h) {
+  return { id: r[h['Lead #']], date: r[h['Received']] instanceof Date ? fmtDate(r[h['Received']]) : '', status: r[h['Status']],
+    name: r[h['Name']], phone: String(r[h['Phone']] || ''), email: r[h['Email']], address: r[h['Address']],
+    street: r[h['Street']], city: r[h['City']], zip: String(r[h['ZIP']] || ''), propertyType: r[h['Property type']],
+    color: r[h['Light color']], combo: r[h['Color combination']], customColors: r[h['Custom colors']],
+    request: r[h['Request']], hasPhoto: !!r[h['Photo file']] };
+}
+function openLeads() {
+  var sh = leadsSheet_(), last = sh.getLastRow(); if (last < 2) return [];
+  var h = headerIndex(sh);
+  return sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues()
+    .filter(function (r) { return r[h['Status']] === 'New'; }).reverse().map(function (r) { return leadObj_(r, h); });
+}
+function leadDetail(id) {
+  var sh = leadsSheet_(), row = findLeadRow(id); if (!row) return { ok: false, error: 'Lead not found' };
+  var h = headerIndex(sh), r = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0], lead = leadObj_(r, h);
+  if (r[h['Photo file']]) {
+    try { var b = DriveApp.getFileById(r[h['Photo file']]).getBlob(); lead.photo = Utilities.base64Encode(b.getBytes()); lead.photoType = b.getContentType(); } catch (e) {}
+  }
+  return { ok: true, lead: lead };
 }
 
 /* ======================= ESTIMATES ======================= */
@@ -153,9 +238,13 @@ function createEstimate(d) {
     notes: clean(d.notes, 1500), validUntil: new Date(now.getTime() + s.validDays * 864e5), footer: s.footer, token: token
   };
 
-  sh.appendRow([est.id, now, 'Sent', est.name, est.phone, est.email, est.street, est.city, est.zip,
+  var rowVals = [est.id, now, 'Sent', est.name, est.phone, est.email, est.street, est.city, est.zip,
     est.lines.map(function (l) { return l.desc + (l.unit ? ' (' + l.qty + ' ' + l.unit + ')' : '') + ' $' + money(l.amount); }).join('\n'),
-    est.subtotal, est.discount, est.tax, est.total, est.notes, '', '', JSON.stringify(est.lines), token]);
+    est.subtotal, est.discount, est.tax, est.total, est.notes, '', '', JSON.stringify(est.lines), token];
+  var eh = headerIndex(sh); if (eh['Lead #'] !== undefined) rowVals[eh['Lead #']] = clean(d.leadId);
+  for (var i = 0; i < rowVals.length; i++) if (rowVals[i] === undefined) rowVals[i] = '';
+  sh.appendRow(rowVals);
+  if (d.leadId) { try { setLeadStatus(clean(d.leadId), 'Estimated', id); } catch (e) {} }
 
   var pdf = estimatePdf(est);
   var photo = null;

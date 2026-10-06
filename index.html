@@ -650,14 +650,16 @@ letItSnow(document.querySelector('.final'),{area:5200,max:260,rMin:1,rMax:3.4,vM
 // ---- House photo: shrink on the phone, then email it straight to Gmail via Google Apps Script ----
 var PHOTO_ENDPOINT='https://script.google.com/macros/s/AKfycbxQTr_N2qPRFJ4SF60Hgs69iqh9exsbqk1OAlY1IZLOtl_tSwyM7lDivbiSioAjC8AsTA/exec';
 function sendPhoto(form){
-  var p=form._photo; if(!p) return Promise.resolve();
-  var flag=form.querySelector('[name=house_photo]');
-  var v=function(n){var el=form.querySelector('[name='+n+']');return el?el.value:'';};
-  var payload={key:'fcl-photo',name:v('name'),phone:v('phone'),email:v('email'),address:v('address'),photo:p.data,type:p.type,filename:p.name,_gotcha:v('_gotcha')};
+  // Sends every quote request to the Estimates app as a lead (with the house photo if one was added)
+  var p=form._photo, flag=form.querySelector('[name=house_photo]');
+  var v=function(n){var el=form.querySelector('[name='+n+']');return el&&!el.disabled?el.value:'';};
+  var payload={key:'fcl-lead',name:v('name'),phone:v('phone'),email:v('email'),address:v('address'),propertyType:v('type'),
+    color:v('color'),color_combination:v('color_combination'),custom_colors:v('custom_colors'),message:v('message'),_gotcha:v('_gotcha')};
+  if(p){payload.photo=p.data;payload.type=p.type;payload.filename=p.name;}
   var send=fetch(PHOTO_ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
   var timeout=new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'))},30000)});
-  return Promise.race([send,timeout]).then(function(){flag.value='Yes - photo emailed to friscolights@gmail.com';})
-    .catch(function(){flag.value='Customer added a photo but it failed to send - ask them to text it';});
+  return Promise.race([send,timeout]).then(function(){if(p)flag.value='Yes - photo emailed to info.friscolights@gmail.com';})
+    .catch(function(){if(p)flag.value='Customer added a photo but it failed to send - ask them to text it';});
 }
 document.querySelectorAll('.photo-box').forEach(function(box){
   if(PHOTO_ENDPOINT.indexOf('https://script.google.com/')!==0) return; // stays hidden until set up
