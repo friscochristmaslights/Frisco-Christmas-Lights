@@ -344,21 +344,32 @@
   .ladder-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px 26px 22px;box-shadow:0 24px 50px rgba(43,32,28,.10)}
   .ladder-card h3{font-size:1.6rem;margin:0 0 4px}
   .ladder-card .sub{margin:0 0 22px;color:var(--muted);font-size:.95rem}
-  .ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:end;height:230px;border-bottom:2px solid var(--line);padding:0 4px}
-  .ladder .col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-  .ladder .amt{font-weight:800;font-size:1.05rem;margin-bottom:8px;color:var(--ink);opacity:0;transition:opacity .4s ease .9s}
-  .ladder .bar{width:100%;max-width:86px;border-radius:12px 12px 0 0;transform:scaleY(.04);transform-origin:bottom;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
-  .ladder .y1 .bar{height:100%;background:linear-gradient(180deg,var(--red-hi),var(--red))}
-  .ladder .yn .bar{height:50%;background:linear-gradient(180deg,#E3C98A,#B8923F)}
-  .ladder .yn:nth-child(2) .bar{transition-delay:.15s}.ladder .yn:nth-child(3) .bar{transition-delay:.3s}.ladder .yn:nth-child(4) .bar{transition-delay:.45s}
-  .ladder.in .bar{transform:scaleY(1)}
-  .ladder.in .amt{opacity:1}
-  .ladder-lbl{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:10px 4px 0;text-align:center;font-size:.82rem;font-weight:700;color:var(--muted)}
-  .ladder-lbl span b{display:block;color:var(--ink);font-size:.95rem}
-  .ladder-note{margin:16px 0 0;font-size:.82rem;color:var(--muted);text-align:center}
+  .plan{display:grid;grid-template-columns:.9fr 1.1fr;gap:14px;align-items:stretch}
+  .pc{position:relative;border-radius:18px;padding:24px 18px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;
+    opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease}
+  .pc .yr{font-weight:800;font-size:.82rem;letter-spacing:.06em}
+  .pc .amt{font-family:var(--serif);font-weight:700;font-size:2.4rem;line-height:1}
+  .pc .amt small{font-family:var(--sans);font-size:.85rem;font-weight:700;margin-left:3px;opacity:.85}
+  .pc .what{font-size:.85rem;font-weight:600}
+  .p1{background:#FFFBF2;border:2px solid var(--gold);color:var(--ink);justify-content:center}
+  .p1 .yr{color:var(--gold)}
+  .p1 .keep{margin-top:8px;font-size:.75rem;font-weight:700;color:var(--pine);background:rgba(18,53,42,.08);padding:5px 10px;border-radius:999px}
+  .p2{background:linear-gradient(180deg,#1A4B39,var(--pine));color:#F3E6C8;box-shadow:0 14px 30px rgba(18,53,42,.25);transition-delay:.15s}
+  .p2 .yr{color:var(--gold-lt)}
+  .p2 .amt{color:#fff}
+  .p2 .what{color:#CFE0D6}
+  .ribbon{position:absolute;top:-12px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:.74rem;font-weight:800;color:#2A1A05;
+    background:linear-gradient(180deg,#F1DCA2,#C9A04A);padding:5px 12px;border-radius:999px;box-shadow:0 4px 10px rgba(0,0,0,.18)}
+  .incl{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:7px;text-align:left}
+  .incl li{display:flex;align-items:center;gap:9px;font-size:.88rem;font-weight:600;color:#fff;opacity:0;transform:translateX(-8px);transition:opacity .4s ease,transform .4s ease}
+  .incl li::before{content:"";width:18px;height:18px;flex:none;border-radius:50%;background:var(--gold) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%2312352A' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
+  .plan.in .pc{opacity:1;transform:none}
+  .plan.in .incl li{opacity:1;transform:none}
+  .incl li:nth-child(1){transition-delay:.55s}.incl li:nth-child(2){transition-delay:.7s}.incl li:nth-child(3){transition-delay:.85s}.incl li:nth-child(4){transition-delay:1s}
+  .ladder-note{margin:16px 0 0;font-size:.84rem;color:var(--muted);text-align:center}
   @media (max-width:900px){.own-grid{grid-template-columns:1fr;gap:36px}}
-  @media (max-width:640px){.ladder{height:180px;gap:8px}.ladder-lbl{gap:8px;font-size:.74rem}.ladder .amt{font-size:.92rem}.ladder-card{padding:22px 16px 18px}.own-points h3{font-size:1.25rem}}
-  @media (prefers-reduced-motion:reduce){.ladder .bar{transform:none;transition:none}.ladder .amt{opacity:1;transition:none}}
+  @media (max-width:640px){.plan{grid-template-columns:1fr;row-gap:22px}.pc .amt{font-size:2.1rem}.ladder-card{padding:22px 16px 18px}.own-points h3{font-size:1.25rem}}
+  @media (prefers-reduced-motion:reduce){.pc,.incl li{opacity:1!important;transform:none!important;transition:none!important}}
 
   /* ---------- See it before we hang it ---------- */
   .preview-sec{background:radial-gradient(800px 420px at 20% 30%,rgba(255,190,90,.10),transparent 70%),#140D0B;color:#F3E6C8;overflow:hidden}
@@ -548,30 +559,43 @@
     <div class="wrap own-grid">
       <div>
         <div class="head">
-          <span class="kicker">Simple, fair pricing</span>
-          <h2 id="own-title">Buy once. Own your lights. <em>Half price every year after.</em></h2>
-          <p class="lede">You're not renting lights. Your first year covers the installation and the lights themselves, and every year after that is just a lower, locked-in reinstall price.</p>
+          <span class="kicker">Full-service, all-inclusive</span>
+          <h2 id="own-title">Buy your lights once. <em>One locked price every year after.</em></h2>
+          <p class="lede">You're not renting lights. Your first year covers your custom-fit lights and the installation. After that, one locked yearly price covers the labor, your warranty, service all season, and takedown after the New Year.</p>
         </div>
         <ul class="own-points">
           <li><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 3h6l-1 4h-4zM8 7h8l1 6a5 5 0 0 1-10 0z"/></svg></span>
             <div><h3>Commercial-grade LED</h3><p>Every strand is custom fit to your home's rooflines, so it looks clean and built for your house.</p></div></li>
           <li><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6"/></svg></span>
-            <div><h3>The lights are yours</h3><p>Once your Year 1 invoice is paid, the lights belong to you. No re-buying them every season.</p></div></li>
+            <div><h3>The lights are yours</h3><p>Once your Year 1 invoice is paid, the lights belong to you. You never pay for the same lights twice.</p></div></li>
           <li><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
             <div><h3>Lifetime warranty</h3><p>Covers every material we provide, for as long as we're the ones installing your display each year.</p><small>Excludes sun fade, severe weather, and physical damage. Full terms come with every estimate.</small></div></li>
         </ul>
       </div>
       <div class="ladder-card">
         <h3>How your price works</h3>
-        <p class="sub">Example: a home with a $1,600 Year 1 install</p>
-        <div class="ladder" id="ladder">
-          <div class="col y1"><span class="amt">$1,600</span><span class="bar"></span></div>
-          <div class="col yn"><span class="amt">$800</span><span class="bar"></span></div>
-          <div class="col yn"><span class="amt">$800</span><span class="bar"></span></div>
-          <div class="col yn"><span class="amt">$800</span><span class="bar"></span></div>
+        <p class="sub">Example pricing. Every home is quoted individually.</p>
+        <div class="plan" id="ladder">
+          <div class="pc p1">
+            <span class="yr">Year 1</span>
+            <span class="amt">$920</span>
+            <span class="what">Your custom-fit lights + installation</span>
+            <span class="keep">Lights are yours to keep</span>
+          </div>
+          <div class="pc p2">
+            <span class="ribbon">All-inclusive</span>
+            <span class="yr">Every year after</span>
+            <span class="amt">$460<small>/year</small></span>
+            <span class="what">One locked price that covers:</span>
+            <ul class="incl">
+              <li>Professional installation</li>
+              <li>Lifetime warranty on your lights</li>
+              <li>In-season service calls</li>
+              <li>Takedown after the New Year</li>
+            </ul>
+          </div>
         </div>
-        <div class="ladder-lbl"><span><b>Year 1</b>Install + lights</span><span><b>Year 2</b>Half price</span><span><b>Year 3</b>Locked rate</span><span><b>Year 4+</b>Locked rate</span></div>
-        <p class="ladder-note">Your Year 2 rate is exactly half of Year 1, locked in every year we reinstall.</p>
+        <p class="ladder-note">Your yearly rate stays locked for as long as we install your display. No surprise increases, no add-on fees for service or takedown.</p>
         <div style="text-align:center;margin-top:18px"><a class="btn btn-red" href="#quote">Get my free quote</a></div>
       </div>
     </div>
@@ -683,7 +707,7 @@
       <div class="faq">
         <details><summary>When should I book?</summary><p>As early as you can. Install dates fill up fast once November starts, so booking in October gets you the most choice.</p></details>
         <details><summary>Can I see what it will look like first?</summary><p>Yes. Add a photo of the front of your house to your quote request and we'll mark it up to show exactly where the lights will go: rooflines, arches, windows, and trees. It comes back with your quote.</p></details>
-        <details><summary>Do I own the lights?</summary><p>Yes. Your Year 1 price covers the installation and the lights. Once that invoice is paid, the lights are yours, and every year after is a lower reinstall price: exactly half of Year 1, locked in.</p></details>
+        <details><summary>Do I own the lights?</summary><p>Yes. Your Year 1 price covers the installation and the lights. Once that invoice is paid, the lights are yours. Every year after, one locked yearly price covers installation, your lifetime warranty, in-season service, and takedown.</p></details>
         <details><summary>Do you provide the lights?</summary><p>Yes. We bring the lights, clips, cords, and timers. Just tell us the look you want.</p></details>
         <details><summary>Is takedown included?</summary><p>Yes. After the holidays we come back and take everything down for you.</p></details>
         <details><summary>What if a bulb goes out?</summary><p>Call or text us and we'll come fix it.</p></details>
