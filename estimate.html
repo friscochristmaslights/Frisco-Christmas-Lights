@@ -128,6 +128,61 @@
   .d-sl{display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:#cbbfae}
   .d-sl input{flex:1;accent-color:var(--gold)}
   .design-btn{width:100%;padding:13px;border:0;border-radius:10px;background:linear-gradient(180deg,#C21530,#A2021F);color:#fff;font-weight:800;margin-bottom:8px}
+
+  /* ---------- Recent: list + detail ---------- */
+  main,.top-row,.tabs{max-width:760px;margin-left:auto;margin-right:auto}
+  .rc-tools{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+  .rc-search{flex:1;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:15px}
+  .rc-search:focus{outline:none;border-color:var(--gold)}
+  .filt{display:flex;background:var(--paper);border-radius:10px;padding:3px;gap:2px}
+  .filt button{border:0;background:none;padding:8px 10px;border-radius:8px;font-weight:700;font-size:.82rem;color:var(--muted);white-space:nowrap}
+  .filt button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .rlist{display:flex;flex-direction:column}
+  .rrow{display:grid;grid-template-columns:42px 1fr auto 14px;gap:12px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line);background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left;cursor:pointer}
+  .rrow:last-child{border-bottom:0}
+  .rrow:hover{background:#FFFCF6}
+  .av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.9rem;color:#fff;background:linear-gradient(160deg,#C21530,#7E0218)}
+  .rrow.ok .av{background:linear-gradient(160deg,#2A8A55,#14563A)}
+  .rrow .nm{font-weight:700;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rrow .sub{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rrow .rt{text-align:right}
+  .rrow .amt2{font-weight:800;font-size:.98rem}
+  .rrow .chev{width:8px;height:8px;border-right:2px solid #BFB3A3;border-top:2px solid #BFB3A3;transform:rotate(45deg)}
+  .chip.sm{font-size:.68rem;padding:2px 8px;margin-top:3px;display:inline-block}
+  .empty{color:var(--muted);text-align:center;padding:22px 0}
+  /* detail */
+  .dt-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .back{border:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .back::before{content:"";width:8px;height:8px;border-left:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:rotate(45deg);margin-left:3px}
+  .dt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .dt-head h2{margin:0 0 2px;font-size:1.45rem}
+  .dt-head .sub{color:var(--muted);font-size:.85rem}
+  .dt-total{text-align:right}
+  .dt-total b{display:block;font-size:1.5rem;color:var(--red)}
+  .dt-total small{color:var(--muted);font-size:.78rem}
+  .qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  .qa a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:12px;background:var(--paper);text-decoration:none;color:var(--ink);font-weight:700;font-size:.76rem}
+  .qa a svg{width:20px;height:20px;stroke:var(--red);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .qa a.off{opacity:.35;pointer-events:none}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:.9rem}
+  .kv dt{color:var(--muted)}
+  .kv dd{margin:0;font-weight:600}
+  .items{width:100%;border-collapse:collapse;font-size:.9rem}
+  .items td{padding:8px 0;border-bottom:1px solid var(--line)}
+  .items td.r{text-align:right;white-space:nowrap;font-weight:700}
+  .items .q{display:block;color:var(--muted);font-size:.78rem;font-weight:400}
+  .yrs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .yrs div{border-radius:12px;padding:10px 12px;background:var(--paper)}
+  .yrs small{display:block;color:var(--muted);font-size:.75rem;font-weight:700}
+  .yrs b{font-size:1.15rem}
+  .sig{display:flex;gap:10px;align-items:center;background:#E3F4EA;color:#14563A;border-radius:12px;padding:10px 12px;font-size:.88rem;font-weight:600;margin-top:12px}
+  .pdfbox{background:#5b524c;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:10px;align-items:center;min-height:120px;justify-content:center}
+  .pdfbox canvas{width:100%;height:auto;background:#fff;border-radius:4px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  .pdfbox .ld{color:#F3E6C8;font-size:.88rem}
+  .pdf-actions{display:flex;gap:8px;margin-top:10px}
+  .pdf-actions .btn{flex:1;padding:12px;font-size:.92rem}
+  .btn.ghost2{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+  @media (max-width:520px){.rc-tools{flex-direction:column;align-items:stretch}.filt{justify-content:space-between}.filt button{flex:1}}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -214,7 +269,17 @@
 
     <div id="tab-recent" hidden>
       <div class="card" id="leadsCard" hidden><h2>Needs an estimate</h2><div id="leads"></div></div>
-      <div class="card"><h2>Recent estimates</h2><div id="recent"><p class="muted">Loading...</p></div></div>
+      <div id="listView">
+        <div class="card">
+          <h2>Estimates</h2>
+          <div class="rc-tools">
+            <input class="rc-search" id="rcSearch" type="search" placeholder="Search name or address" autocomplete="off">
+            <div class="filt" id="rcFilt"><button data-f="all" class="on">All</button><button data-f="Sent">Pending</button><button data-f="Approved">Approved</button></div>
+          </div>
+          <div id="recent" class="rlist"><p class="empty">Loading...</p></div>
+        </div>
+      </div>
+      <div id="detailView" hidden></div>
     </div>
   </main>
 
@@ -292,7 +357,7 @@ $('#lockBtn').onclick=function(){if(confirm('Lock the app? You\'ll need the PIN 
 document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){
   document.querySelectorAll('.tabs button').forEach(function(x){x.classList.toggle('on',x===b)});
   var t=b.dataset.tab;$('#tab-new').hidden=t!=='new';$('#tab-recent').hidden=t!=='recent';$('#bar').hidden=t!=='new';
-  if(t==='recent')loadRecent();window.scrollTo(0,0);
+  if(t==='recent'){if(!$('#detailView').hidden)showList();loadRecent();}window.scrollTo(0,0);
 }});
 
 /* ---------- items ---------- */
@@ -397,7 +462,7 @@ function setBadge(n){var b=$('#leadBadge');b.textContent=n;b.hidden=!n;}
 function refreshBadge(){api({a:'recent',pin:state.pin}).then(function(r){if(r.ok)setBadge((r.leads||[]).length)}).catch(function(){});}
 function goTab(t){document.querySelector('.tabs button[data-tab="'+t+'"]').click();}
 function loadRecent(){
-  var box=$('#recent'),lbox=$('#leads');box.innerHTML='<p class="muted">Loading...</p>';
+  var box=$('#recent'),lbox=$('#leads');if(!state.ests)box.innerHTML='<p class="empty">Loading...</p>';
   api({a:'recent',pin:state.pin}).then(function(r){
     if(!r.ok){box.innerHTML='';var e=document.createElement('p');e.className='err';e.textContent=r.error;box.appendChild(e);return;}
     var leads=r.leads||[];setBadge(leads.length);$('#leadsCard').hidden=!leads.length;lbox.innerHTML='';
@@ -413,20 +478,106 @@ function loadRecent(){
       bs[1].onclick=function(){if(!confirm('Dismiss '+(L.name||L.id)+'? Use this for spam or duplicates.'))return;post({a:'dismiss',id:L.id}).then(loadRecent);};
       lbox.appendChild(d);
     });
-    if(!r.estimates.length){box.innerHTML='<p class="muted">No estimates yet.</p>';return;}
-    box.innerHTML='';
-    r.estimates.forEach(function(x){
-      var d=document.createElement('div');d.className='est';
-      d.innerHTML='<div><div class="nm"></div><div class="sub"></div></div><span class="chip"></span>';
-      d.querySelector('.nm').textContent=x.name;d.querySelector('.sub').textContent=x.id+' \u2022 '+x.date+' \u2022 '+money(x.total)+(x.street?' \u2022 '+x.street:'');
-      var c=d.querySelector('.chip');c.textContent=CHIP[x.status]||x.status;c.classList.add(x.status);
-      if(x.status!=='Approved'){var a=document.createElement('div');a.className='act';a.innerHTML='<button class="btn ok" style="width:100%;padding:11px">Mark approved</button>';
-        a.querySelector('button').onclick=function(){if(!confirm('Mark '+x.name+' ('+x.id+') as approved and send it to the office?'))return;
-          this.disabled=true;this.textContent='Sending...';post({a:'approve',id:x.id}).then(function(res){if(!res.ok)alert(res.error);loadRecent();}).catch(function(){alert('No connection.');loadRecent();});};
-        d.appendChild(a);}
-      box.appendChild(d);
-    });
+    state.ests=r.estimates||[];renderEsts();
   }).catch(function(){box.innerHTML='<p class="err">No connection.</p>';});
+}
+
+/* ---------- estimates list ---------- */
+state.filt='all';
+function initials(n){var p=String(n||'?').trim().split(/\s+/);return ((p[0]||'')[0]||'?').toUpperCase()+((p[1]||'')[0]||'').toUpperCase();}
+function renderEsts(){
+  var box=$('#recent'),q=($('#rcSearch').value||'').toLowerCase(),list=(state.ests||[]).filter(function(x){
+    if(state.filt!=='all'&&x.status!==state.filt)return false;
+    return !q||(x.name+' '+x.street+' '+x.city+' '+x.id).toLowerCase().indexOf(q)>=0;});
+  var counts={all:(state.ests||[]).length,Sent:0,Approved:0};(state.ests||[]).forEach(function(x){if(counts[x.status]!=null)counts[x.status]++;});
+  document.querySelectorAll('#rcFilt button').forEach(function(b){var f=b.dataset.f;b.textContent=(f==='all'?'All':f==='Sent'?'Pending':'Approved')+' ('+counts[f]+')';});
+  box.innerHTML='';
+  if(!list.length){box.innerHTML='<p class="empty">'+((state.ests||[]).length?'No estimates match.':'No estimates yet.')+'</p>';return;}
+  list.forEach(function(x){
+    var b=document.createElement('button');b.type='button';b.className='rrow'+(x.status==='Approved'?' ok':'');
+    b.innerHTML='<span class="av"></span><span style="min-width:0"><span class="nm"></span><span class="sub"></span></span><span class="rt"><span class="amt2"></span><br><span class="chip sm"></span></span><span class="chev"></span>';
+    b.querySelector('.av').textContent=initials(x.name);
+    b.querySelector('.nm').textContent=x.name;b.querySelector('.nm').style.display='block';
+    b.querySelector('.sub').textContent=[x.street,x.date].filter(Boolean).join(' • ');b.querySelector('.sub').style.display='block';
+    b.querySelector('.amt2').textContent=money(x.total);
+    var c=b.querySelector('.chip');c.textContent=CHIP[x.status]||x.status;c.classList.add(x.status);
+    b.onclick=function(){openEst(x.id)};
+    box.appendChild(b);
+  });
+}
+$('#rcSearch').oninput=renderEsts;
+document.querySelectorAll('#rcFilt button').forEach(function(b){b.onclick=function(){state.filt=b.dataset.f;
+  document.querySelectorAll('#rcFilt button').forEach(function(x){x.classList.toggle('on',x===b)});renderEsts();}});
+
+/* ---------- estimate detail ---------- */
+var IC={call:'<svg viewBox="0 0 24 24"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2"/></svg>',
+  text:'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',
+  mail:'<svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg>',
+  map:'<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'};
+state.pdfs={};
+function showList(){$('#detailView').hidden=true;$('#listView').hidden=false;$('#leadsCard').hidden=!$('#leads').children.length;window.scrollTo(0,state.listY||0);}
+function esc2(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
+function openEst(id){
+  state.listY=window.scrollY;var dv=$('#detailView');
+  $('#listView').hidden=true;$('#leadsCard').hidden=true;dv.hidden=false;window.scrollTo(0,0);
+  dv.innerHTML='<div class="dt-top"><button class="back" id="dtBack">Estimates</button></div><div class="card"><p class="empty">Loading estimate...</p></div>';
+  $('#dtBack').onclick=showList;
+  api({a:'est',pin:state.pin,id:id}).then(function(r){
+    if(!r.ok){dv.querySelector('.card').innerHTML='<p class="err">'+esc2(r.error)+'</p>';return;}
+    var e=r.est,addr=[e.street,e.city,'TX '+e.zip].filter(Boolean).join(', '),tel=String(e.phone).replace(/[^\d+]/g,'');
+    var rows=e.lines.map(function(l){return '<tr><td>'+esc2(l.desc)+(l.unit?'<span class="q">'+esc2(l.qty+' '+l.unit)+' × '+money(l.rate)+'</span>':'')+'</td><td class="r">'+money(l.amount)+'</td></tr>';}).join('');
+    if(e.discount)rows+='<tr><td>Discount</td><td class="r">-'+money(e.discount)+'</td></tr>';
+    if(e.tax)rows+='<tr><td>Tax</td><td class="r">'+money(e.tax)+'</td></tr>';
+    dv.innerHTML='<div class="dt-top"><button class="back" id="dtBack">Estimates</button></div>'+
+      '<div class="card"><div class="dt-head"><div><h2>'+esc2(e.name)+'</h2><div class="sub">'+esc2(e.id)+' • Sent '+esc2(e.created)+'</div>'+
+        '<span class="chip '+esc2(e.status)+'" style="display:inline-block;margin-top:8px">'+esc2(CHIP[e.status]||e.status)+'</span></div>'+
+        '<div class="dt-total"><small>Year 1</small><b>'+money(e.total)+'</b><small>Then '+money(e.year2)+'/yr</small></div></div>'+
+        '<div class="qa">'+
+          '<a class="'+(tel?'':'off')+'" href="tel:'+tel+'">'+IC.call+'Call</a>'+
+          '<a class="'+(tel?'':'off')+'" href="sms:'+tel+'">'+IC.text+'Text</a>'+
+          '<a class="'+(e.email?'':'off')+'" href="mailto:'+esc2(e.email)+'?subject='+encodeURIComponent('Your Frisco Christmas Lights estimate '+e.id)+'">'+IC.mail+'Email</a>'+
+          '<a target="_blank" rel="noopener" href="https://maps.google.com/?q='+encodeURIComponent(addr)+'">'+IC.map+'Directions</a></div>'+
+        (e.signedName?'<div class="sig">✔️ Signed by '+esc2(e.signedName)+' • '+esc2(e.signedAt)+'</div>':
+          (e.status==='Approved'?'<div class="sig">✔️ Approved • '+esc2(e.approvedAt)+(e.approvedVia?' • '+esc2(e.approvedVia):'')+'</div>':''))+
+      '</div>'+
+      '<div class="card"><h2>Details</h2><dl class="kv"><dt>Address</dt><dd>'+esc2(addr)+'</dd><dt>Phone</dt><dd>'+esc2(e.phone||'—')+'</dd><dt>Email</dt><dd>'+esc2(e.email||'—')+'</dd></dl>'+
+        '<table class="items" style="margin-top:14px">'+rows+'</table>'+
+        '<div class="yrs"><div><small>Year 1</small><b>'+money(e.total)+'</b></div><div><small>Every year after</small><b>'+money(e.year2)+'</b></div></div>'+
+        (e.notes?'<p class="muted" style="margin:12px 0 0"><b>Notes:</b> '+esc2(e.notes)+'</p>':'')+'</div>'+
+      '<div class="card"><h2>Estimate PDF</h2><div class="pdfbox" id="pdfBox"><span class="ld">Loading the PDF...</span></div>'+
+        '<div class="pdf-actions"><button class="btn ghost2" id="pdfOpen" disabled>Open / share PDF</button></div></div>'+
+      (e.status!=='Approved'?'<button class="btn ok" id="dtApprove" style="width:100%;margin-bottom:14px">Mark approved</button>':'');
+    $('#dtBack').onclick=showList;
+    var ap=$('#dtApprove');if(ap)ap.onclick=function(){
+      if(!confirm('Mark '+e.name+' ('+e.id+') as approved and send it to the office?'))return;
+      ap.disabled=true;ap.textContent='Sending...';
+      post({a:'approve',id:e.id}).then(function(res){if(!res.ok){alert(res.error);ap.disabled=false;ap.textContent='Mark approved';return;}
+        delete state.pdfs[e.id];loadRecent();openEst(e.id);}).catch(function(){alert('No connection.');ap.disabled=false;ap.textContent='Mark approved';});};
+    loadPdf(e.id);
+  }).catch(function(){dv.querySelector('.card').innerHTML='<p class="err">No connection.</p>';});
+}
+function b64ToBytes(b){var s=atob(b),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
+var PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+function pdfLib(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  return new Promise(function(ok,no){var sc=document.createElement('script');sc.src=PDFJS+'pdf.min.js';
+    sc.onload=function(){window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js';ok(window.pdfjsLib);};sc.onerror=no;document.head.appendChild(sc);});
+}
+function loadPdf(id){
+  var got=state.pdfs[id]?Promise.resolve(state.pdfs[id]):api({a:'pdf',pin:state.pin,id:id}).then(function(r){if(!r.ok)throw new Error(r.error);state.pdfs[id]=r;return r;});
+  got.then(function(r){
+    var bytes=b64ToBytes(r.pdf),blob=new Blob([bytes],{type:'application/pdf'}),btn=$('#pdfOpen');
+    if(btn){btn.disabled=false;btn.onclick=function(){
+      var file=null;try{file=new File([blob],r.name||(id+'.pdf'),{type:'application/pdf'});}catch(x){}
+      if(file&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:r.name}).catch(function(){});return;}
+      var u=URL.createObjectURL(blob),w=window.open(u,'_blank');if(!w){var a=document.createElement('a');a.href=u;a.download=r.name||(id+'.pdf');a.click();}};}
+    return pdfLib().then(function(lib){return lib.getDocument({data:bytes}).promise;}).then(function(doc){
+      var box=$('#pdfBox');if(!box)return;box.innerHTML='';var w=box.clientWidth-20,dpr=Math.min(window.devicePixelRatio||1,2),chain=Promise.resolve();
+      for(var n=1;n<=doc.numPages;n++)(function(n){chain=chain.then(function(){return doc.getPage(n).then(function(pg){
+        var v=pg.getViewport({scale:1}),sc=w/v.width,vp=pg.getViewport({scale:sc*dpr}),c=document.createElement('canvas');
+        c.width=vp.width;c.height=vp.height;box.appendChild(c);return pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;});});})(n);
+      return chain;});
+  }).catch(function(err){var box=$('#pdfBox');if(box)box.innerHTML='<span class="ld">Couldn\'t show the PDF here'+(state.pdfs[id]?'. Tap "Open / share PDF" to view it.':': '+esc2(err&&err.message||'no connection')+'.')+'</span>';});
 }
 function startFromLead(id,btn){
   btn.disabled=true;btn.textContent='Loading...';

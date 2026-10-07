@@ -104,7 +104,9 @@ function doGet(e) {
   try {
     if (p.a === 'approve') return signPage(p.id, p.t);
     if (p.a === 'prices') { requirePin(p.pin); return json({ ok: true, items: getPrices(), settings: publicSettings() }); }
-    if (p.a === 'recent') { requirePin(p.pin); return json({ ok: true, leads: openLeads(), estimates: recentEstimates(20) }); }
+    if (p.a === 'recent') { requirePin(p.pin); return json({ ok: true, leads: openLeads(), estimates: recentEstimates(60) }); }
+    if (p.a === 'est') { requirePin(p.pin); return json(estimateDetail(p.id)); }
+    if (p.a === 'pdf') { requirePin(p.pin); return json(estimatePdfData(p.id)); }
     if (p.a === 'lead') { requirePin(p.pin); return json(leadDetail(p.id, p.photo === '1')); }
     return text('ok');
   } catch (err) { return json({ ok: false, error: String(err.message || err) }); }
@@ -635,12 +637,36 @@ function estFromRow(v, h) {
     signedName: h['Signed name'] !== undefined ? v[h['Signed name']] : '', signedAt: h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null,
     photoB64: (function () { try { return h['Preview file'] !== undefined && v[h['Preview file']] ? Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()) : ''; } catch (e) { return ''; } })() };
 }
+function estimateDetail(id) {
+  var sh = sheet('Estimates'), row = findRow(id); if (!row) return { ok: false, error: 'Estimate not found' };
+  var h = headerIndex(sh), v = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0];
+  var created = v[h['Created']] instanceof Date ? v[h['Created']] : null, appr = v[h['Approved at']] instanceof Date ? v[h['Approved at']] : null;
+  var signedAt = h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null;
+  var total = Number(v[h['Total']]) || 0;
+  return { ok: true, est: {
+    id: v[h['Estimate #']], status: v[h['Status']], created: created ? fmtDate(created) : '',
+    name: v[h['Customer']], phone: String(v[h['Phone']] || ''), email: v[h['Email']] || '',
+    street: v[h['Street']], city: v[h['City']], zip: String(v[h['ZIP']] || ''),
+    lines: JSON.parse(v[h['Items JSON']] || '[]'), subtotal: Number(v[h['Subtotal']]) || 0, discount: Number(v[h['Discount']]) || 0,
+    tax: Number(v[h['Tax']]) || 0, total: total, year2: round2(total / 2), notes: v[h['Notes']] || '',
+    approvedAt: appr ? fmtDateTime_(appr) : '', approvedVia: v[h['Approved via']] || '',
+    signedName: h['Signed name'] !== undefined ? (v[h['Signed name']] || '') : '', signedAt: signedAt ? fmtDateTime_(signedAt) : '',
+    hasPreview: h['Preview file'] !== undefined && !!v[h['Preview file']] } };
+}
+
+function estimatePdfData(id) {
+  var sh = sheet('Estimates'), row = findRow(id); if (!row) return { ok: false, error: 'Estimate not found' };
+  var h = headerIndex(sh), v = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0];
+  var pdf = estimatePdf(estFromRow(v, h));
+  return { ok: true, name: pdf.getName(), pdf: Utilities.base64Encode(pdf.getBytes()) };
+}
+
 function recentEstimates(n) {
   var sh = sheet('Estimates'), last = sh.getLastRow(); if (last < 2) return [];
   var h = headerIndex(sh), start = Math.max(2, last - n + 1);
   return sh.getRange(start, 1, last - start + 1, sh.getLastColumn()).getValues().reverse().map(function (r) {
     return { id: r[h['Estimate #']], date: r[h['Created']] instanceof Date ? fmtDate(r[h['Created']]) : '', name: r[h['Customer']],
-      street: r[h['Street']], total: Number(r[h['Total']]) || 0, status: r[h['Status']] };
+      street: r[h['Street']], city: r[h['City']] || '', total: Number(r[h['Total']]) || 0, status: r[h['Status']] };
   });
 }
 
