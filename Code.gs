@@ -21,6 +21,18 @@ var LEAD_HEADERS = ['Lead #', 'Received', 'Status', 'Name', 'Phone', 'Email', 'A
 var EST_HEADERS = ['Estimate #', 'Created', 'Status', 'Customer', 'Phone', 'Email', 'Street', 'City', 'ZIP',
   'Items', 'Subtotal', 'Discount', 'Tax', 'Total', 'Notes', 'Approved at', 'Approved via', 'Items JSON', 'Token'];
 
+
+/* ======================= ESTIMATE WORDING ======================= */
+var ABOUT_TEXT = 'Every light we install is commercial-grade LED material, custom fit specifically to your home. Your Year 1 price covers your installation and all materials. Once your Year 1 invoice is paid, the lights are yours to keep. Your lights are backed by our lifetime warranty on all materials we provide (see Terms and Conditions for details). After the New Year, we\u2019ll take your display down for you, and next fall we\u2019ll reach out to confirm your installation at your locked Year 2 rate.';
+var TERMS = [
+  ['Ownership of materials', 'All lighting materials remain the property of Frisco Christmas Lights LLC until the Year 1 invoice is paid in full. Once paid in full, ownership of the materials transfers to the customer.'],
+  ['Payment and late fees', 'An invoice will be sent once installation is complete. Payment is due within 30 days of the invoice date. If payment is not received within 30 days, a late fee of $20.00 per day will be added for each day the balance remains unpaid.'],
+  ['Lifetime warranty', 'Your lights are covered by a lifetime warranty for as long as Frisco Christmas Lights LLC is the company that installs them each year. The warranty covers all materials provided by Frisco Christmas Lights. It does not cover sun fade, damage from severe weather, or extensive physical damage caused by people. Skipped years: if you skip one or more years, your warranty remains valid once we verify the lights were not installed by another party during that time. Installation by others: if your lights are installed by any other person or company, the lifetime warranty is no longer valid, even if you return to Frisco Christmas Lights for future installations.'],
+  ['Annual service', 'Each year, Frisco Christmas Lights will remove your display after the New Year and contact you the following fall to confirm your next installation at your locked Year 2 rate.']
+];
+var TERMS_CLOSE = 'By signing this estimate, you agree to these terms.';
+function year2_(est) { return round2((Number(est.total) || 0) / 2); }   // half of Year 1 install, tax included proportionally
+
 /* ======================= ONE-TIME SETUP ======================= */
 function setup() {
   var ss, id = PROPS.getProperty('SHEET_ID');
@@ -78,7 +90,7 @@ function setup() {
   leadsSheet_(ss);
   photoFolder_();
   if (headerIndex(es)['Lead #'] === undefined) es.getRange(1, es.getLastColumn() + 1).setValue('Lead #').setFontWeight('bold');
-  if (headerIndex(es)['Preview file'] === undefined) es.getRange(1, es.getLastColumn() + 1).setValue('Preview file').setFontWeight('bold');
+  ['Preview file', 'Signed name', 'Signed at'].forEach(function (c) { ensureCol_(es, c); });
   Logger.log(logoDataUri_() ? 'Logo found on friscolights.com' : 'Logo not found yet - upload email-logo.jpg to GitHub');
   var s1 = ss.getSheetByName('Sheet1'); if (s1 && ss.getSheets().length > 1) ss.deleteSheet(s1);
 
@@ -90,7 +102,7 @@ function setup() {
 function doGet(e) {
   var p = (e && e.parameter) || {};
   try {
-    if (p.a === 'approve') return approvePage(p.id, p.t);
+    if (p.a === 'approve') return signPage(p.id, p.t);
     if (p.a === 'prices') { requirePin(p.pin); return json({ ok: true, items: getPrices(), settings: publicSettings() }); }
     if (p.a === 'recent') { requirePin(p.pin); return json({ ok: true, leads: openLeads(), estimates: recentEstimates(20) }); }
     if (p.a === 'lead') { requirePin(p.pin); return json(leadDetail(p.id, p.photo === '1')); }
@@ -325,7 +337,7 @@ function approveEstimate(id, token, via, est, pdf, photo) {
       to: est.email, name: BRAND.name, replyTo: s.approvedInbox,
       subject: 'You\u2019re on the schedule! Estimate ' + est.id + ' approved',
       htmlBody: wrap('<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 10px">Thank you, ' + esc(firstName(est.name)) + '!</h2>' +
-        '<p>Your estimate <b>' + est.id + '</b> for <b>$' + money(est.total) + '</b> is approved. We\u2019ll reach out shortly to schedule your installation.</p>' +
+        '<p>Your estimate <b>' + est.id + '</b> for <b>$' + money(est.total) + '</b> is approved' + (est.signedName ? ' and signed' : '') + '. Your locked rate for Year 2 and beyond is <b>$' + money(year2_(est)) + '</b> per year. We\u2019ll reach out shortly to schedule your installation.</p><p>Your signed estimate is attached for your records.</p>' +
         '<p>Questions? Call or text <b>' + BRAND.phone + '</b>.</p>'),
       attachments: [pdf]
     });
@@ -333,19 +345,73 @@ function approveEstimate(id, token, via, est, pdf, photo) {
   return { ok: true, id: id, name: est.name };
 }
 
-function approvePage(id, token) {
-  var r;
-  try { r = approveEstimate(id, token, 'Customer clicked Approve'); } catch (err) { r = { ok: false, error: String(err) }; }
-  var body = r.ok
-    ? '<h1>' + (r.already ? 'Already approved' : 'Thank you!') + '</h1><p>' + (r.already ? 'Estimate ' + esc(id) + ' was already approved. ' : 'Your estimate <b>' + esc(id) + '</b> is approved. ') +
-      'We\u2019ll reach out shortly to schedule your installation.</p><p>Questions? Call or text <a href="tel:+19725565120">' + BRAND.phone + '</a>.</p>'
-    : '<h1>Something went wrong</h1><p>' + esc(r.error || '') + '</p><p>Please call or text <a href="tel:+19725565120">' + BRAND.phone + '</a> and we\u2019ll take care of it.</p>';
-  var html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + BRAND.name + '</title>' +
-    '<style>body{margin:0;font-family:Helvetica,Arial,sans-serif;background:#FBF7F0;color:#2B201C;display:grid;place-items:center;min-height:100vh;padding:24px;box-sizing:border-box}' +
-    '.c{max-width:460px;background:#fff;border-top:5px solid ' + BRAND.red + ';border-radius:16px;padding:32px 28px;box-shadow:0 20px 50px rgba(0,0,0,.12);text-align:center}' +
-    'h1{font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 12px}a{color:' + BRAND.red + ';font-weight:bold}.b{font-family:Georgia,serif;color:' + BRAND.gold + ';font-size:14px;letter-spacing:2px;margin-bottom:14px}</style></head>' +
-    '<body><div class="c"><div class="b">FRISCO CHRISTMAS LIGHTS</div>' + body + '<p><a href="' + BRAND.site + '">friscolights.com</a></p></div></body></html>';
-  return HtmlService.createHtmlOutput(html).setTitle(BRAND.name).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+function signPage(id, token) {
+  var sh = sheet('Estimates'), row = findRow(id), err = '', est = null, already = false;
+  if (!row) err = 'We couldn\u2019t find that estimate.';
+  else {
+    var h = headerIndex(sh), v = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0];
+    if (!token || token !== v[h['Token']]) err = 'This link is not valid.';
+    else { est = estFromRow(v, h); already = v[h['Status']] === 'Approved'; }
+  }
+  var css = '*{box-sizing:border-box}body{margin:0;font-family:Helvetica,Arial,sans-serif;background:#FBF7F0;color:#2B201C}' +
+    '.band{background:#140D0B;text-align:center;padding:14px;border-bottom:5px solid ' + BRAND.red + '}.band img{height:70px;max-width:100%}' +
+    '.wrap{max-width:640px;margin:0 auto;padding:18px 16px 40px}.card{background:#fff;border:1px solid #E6DAC6;border-radius:14px;padding:18px;margin-bottom:14px}' +
+    'h1{font-family:Georgia,serif;color:' + BRAND.red + ';font-size:26px;margin:4px 0 6px}h2{font-family:Georgia,serif;color:' + BRAND.red + ';font-size:19px;margin:0 0 10px}' +
+    '.muted{color:#6E615A;font-size:14px}table{width:100%;border-collapse:collapse;font-size:15px}td{padding:8px 4px;border-bottom:1px solid #E6DAC6}td.r{text-align:right;white-space:nowrap}' +
+    '.yr{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid #E6DAC6}.yr b{font-size:20px;color:' + BRAND.red + '}.yr:last-child{border:0}' +
+    '.terms{max-height:260px;overflow:auto;font-size:13.5px;line-height:1.5;background:#FBF7F0;border-radius:10px;padding:12px 14px}.terms p{margin:0 0 10px}' +
+    'label.f{display:block;font-weight:bold;margin:14px 0 6px}input[type=text]{width:100%;font-size:18px;padding:12px;border:1.5px solid #D9CDB2;border-radius:10px;font-family:Georgia,serif}' +
+    '.chk{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:15px}.chk input{width:22px;height:22px;flex:none;margin-top:1px}' +
+    'button{width:100%;margin-top:16px;border:0;border-radius:12px;padding:16px;font-size:17px;font-weight:bold;background:' + BRAND.red + ';color:#fff}button:disabled{opacity:.5}' +
+    '.err{color:' + BRAND.red + ';font-weight:bold;margin-top:10px}.done{text-align:center}.sig{font-family:Georgia,serif;font-size:24px;font-style:italic}';
+  var body;
+  if (err) body = '<div class="card done"><h1>Something went wrong</h1><p>' + esc(err) + '</p><p>Please call or text <b>' + BRAND.phone + '</b> and we\u2019ll take care of it.</p></div>';
+  else if (already) body = '<div class="card done"><h1>Already approved</h1><p>Estimate <b>' + esc(est.id) + '</b> was approved' + (est.signedName ? ' and signed by <b>' + esc(est.signedName) + '</b>' : '') + '. We\u2019ll be in touch to schedule your installation.</p><p class="muted">Questions? Call or text ' + BRAND.phone + '.</p></div>';
+  else {
+    var rows = est.lines.map(function (l) { return '<tr><td>' + esc(l.desc) + (l.unit ? ' <span class="muted">(' + l.qty + ' ' + l.unit + ')</span>' : '') + '</td><td class="r">$' + money(l.amount) + '</td></tr>'; }).join('');
+    var terms = TERMS.map(function (t, i) { return '<p><b>' + (i + 1) + '. ' + t[0] + '.</b> ' + esc(t[1]) + '</p>'; }).join('') + '<p><i>' + TERMS_CLOSE + '</i></p>';
+    body = '<div id="form"><div class="card"><div class="muted">Estimate ' + esc(est.id) + '</div><h1>Review &amp; sign</h1>' +
+      '<p class="muted" style="margin:0">' + esc(est.name) + ' \u2022 ' + esc(est.street) + (est.city ? ', ' + esc(est.city) : '') + '</p></div>' +
+      '<div class="card"><h2>Your holiday lighting</h2><table>' + rows + '</table></div>' +
+      '<div class="card"><h2>Your pricing</h2><div class="yr"><span>Year 1<br><span class="muted">Installation and materials</span></span><b>$' + money(est.total) + '</b></div>' +
+      '<div class="yr"><span>Year 2 and beyond<br><span class="muted">Annual reinstallation, locked rate</span></span><b>$' + money(year2_(est)) + '<span class="muted" style="font-size:13px"> /yr</span></b></div></div>' +
+      '<div class="card"><h2>About your lights</h2><p style="margin:0;line-height:1.55">' + esc(ABOUT_TEXT) + '</p></div>' +
+      '<div class="card"><h2>Terms and Conditions</h2><div class="terms">' + terms + '</div>' +
+      '<label class="f" for="nm">Type your full name to sign</label><input type="text" id="nm" autocomplete="name" placeholder="Full name">' +
+      '<label class="chk"><input type="checkbox" id="ag"> <span>I have read and agree to the Terms and Conditions above.</span></label>' +
+      '<button id="go">Sign &amp; Approve</button><div class="err" id="er"></div></div></div>' +
+      '<div id="ok" class="card done" style="display:none"><h1>Thank you!</h1><p>Your estimate is signed and approved. We\u2019ll reach out shortly to schedule your installation.</p>' +
+      '<p class="sig" id="sg"></p><p class="muted">A signed copy has been emailed to you. Questions? Call or text ' + BRAND.phone + '.</p></div>' +
+      '<script>var b=document.getElementById("go"),n=document.getElementById("nm"),a=document.getElementById("ag"),e=document.getElementById("er");' +
+      'b.onclick=function(){e.textContent="";var v=n.value.trim();if(v.split(/\\s+/).length<2){e.textContent="Please type your full name (first and last).";return;}' +
+      'if(!a.checked){e.textContent="Please check the box to agree to the terms.";return;}b.disabled=true;b.textContent="Signing...";' +
+      'google.script.run.withSuccessHandler(function(r){if(r&&r.ok){document.getElementById("form").style.display="none";document.getElementById("sg").textContent=v;document.getElementById("ok").style.display="block";window.scrollTo(0,0);}' +
+      'else{b.disabled=false;b.textContent="Sign & Approve";e.textContent=(r&&r.error)||"Something went wrong. Please try again.";}})' +
+      '.withFailureHandler(function(){b.disabled=false;b.textContent="Sign & Approve";e.textContent="Something went wrong. Please try again or call ' + BRAND.phone + '.";})' +
+      '.signEstimate(' + JSON.stringify(String(id)) + ',' + JSON.stringify(String(token)) + ',v,true);};</script>';
+  }
+  var html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>' + css + '</style></head><body>' +
+    '<div class="band"><img src="' + BRAND.logo + '" alt="Frisco Christmas Lights"></div><div class="wrap">' + body + '</div></body></html>';
+  return HtmlService.createHtmlOutput(html).setTitle('Sign your estimate \u2022 ' + BRAND.name).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function signEstimate(id, token, name, agreed) {
+  name = clean(name, 120);
+  if (!agreed) return { ok: false, error: 'Please agree to the terms.' };
+  if (name.split(/\s+/).length < 2) return { ok: false, error: 'Please type your full name.' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = sheet('Estimates'), row = findRow(id); if (!row) return { ok: false, error: 'Estimate not found.' };
+    var h = headerIndex(sh), v = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0];
+    if (token !== v[h['Token']]) return { ok: false, error: 'This link is not valid.' };
+    if (v[h['Status']] === 'Approved') return { ok: true, already: true };
+    var now = new Date();
+    sh.getRange(row, ensureCol_(sh, 'Signed name') + 1).setValue(name);
+    sh.getRange(row, ensureCol_(sh, 'Signed at') + 1).setValue(now);
+    v = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0]; h = headerIndex(sh);
+    var est = estFromRow(v, h);
+    return approveEstimate(id, token, 'Signed online by ' + name, est);
+  } finally { lock.releaseLock(); }
 }
 
 /* ======================= EMAILS & PDF ======================= */
@@ -355,10 +421,11 @@ function sendCustomerEstimate(est, pdf, photo) {
     '<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 10px">Your lighting estimate</h2>' +
     '<p>Hi ' + esc(firstName(est.name)) + ',</p><p>Thanks for choosing ' + BRAND.name + '! Here\u2019s your estimate for <b>' + esc(est.street) + '</b>.' +
     (photo ? ' We\u2019ve also attached a preview showing where your lights will go.' : '') + '</p>' +
-    summaryTable(est) +
+    summaryTable(est) + yearBox_(est) +
     (est.notes ? '<p style="background:#FBF7F0;border-left:3px solid ' + BRAND.gold + ';padding:10px 14px">' + esc(est.notes).replace(/\n/g, '<br>') + '</p>' : '') +
-    '<p style="text-align:center;margin:28px 0"><a href="' + url + '" style="background:' + BRAND.red + ';color:#fff;text-decoration:none;font-weight:bold;padding:15px 30px;border-radius:10px;display:inline-block;font-size:16px">Approve estimate</a></p>' +
-    '<p style="color:#6E615A;font-size:13px">Valid until ' + fmtDate(est.validUntil) + '. ' + esc(est.footer) + ' The full estimate is attached as a PDF.</p>' +
+    '<h3 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:22px 0 6px">About your lights</h3><p style="line-height:1.55">' + esc(ABOUT_TEXT) + '</p>' +
+    '<p style="text-align:center;margin:28px 0"><a href="' + url + '" style="background:' + BRAND.red + ';color:#fff;text-decoration:none;font-weight:bold;padding:15px 30px;border-radius:10px;display:inline-block;font-size:16px">Review &amp; sign estimate</a></p>' +
+    '<p style="color:#6E615A;font-size:13px">Valid until ' + fmtDate(est.validUntil) + '. The full estimate and Terms and Conditions are attached as a PDF.</p>' +
     '<p>Questions or changes? Just reply to this email or call/text <b>' + BRAND.phone + '</b>.</p>'
   );
   MailApp.sendEmail({ to: est.email, name: BRAND.name, replyTo: settings().estimatesInbox,
@@ -370,14 +437,20 @@ function officeEmail(est, via) {
   var row = function (k, v) { return '<tr><td style="padding:6px 12px 6px 0;color:#6E615A;white-space:nowrap">' + k + '</td><td style="padding:6px 0;font-weight:bold">' + esc(v || '-') + '</td></tr>'; };
   return wrap(
     '<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 6px">New approved install</h2>' +
-    '<p style="margin:0 0 16px;color:#6E615A">' + esc(via) + ' \u2022 ' + est.id + '</p>' +
+    '<p style="margin:0 0 16px;color:#6E615A">' + esc(via) + ' \u2022 ' + est.id + (est.signedAt ? ' \u2022 ' + fmtDateTime_(est.signedAt) : '') + '</p>' +
     '<h3 style="margin:18px 0 6px">Customer (QuickBooks fields)</h3><table style="border-collapse:collapse;font-size:15px">' +
     row('Display name', est.name) + row('First name', firstName(est.name)) + row('Last name', lastName(est.name)) +
     row('Email', est.email) + row('Phone', est.phone) + row('Street', est.street) + row('City', est.city) +
     row('State', est.state || 'TX') + row('ZIP', est.zip) + '</table>' +
-    '<h3 style="margin:22px 0 6px">Products / services</h3>' + summaryTable(est) +
+    '<h3 style="margin:22px 0 6px">Products / services</h3>' + summaryTable(est) + yearBox_(est) +
     (est.notes ? '<p><b>Notes:</b> ' + esc(est.notes) + '</p>' : '') +
     '<p style="color:#6E615A;font-size:13px">The estimate PDF is attached. Everything is also logged in the Estimates sheet.</p>');
+}
+
+function yearBox_(est) {
+  var r = function (k, sub, v) { return '<tr><td style="padding:8px 0;border-bottom:1px solid #E6DAC6">' + k + '<br><span style="color:#6E615A;font-size:12px">' + sub + '</span></td><td style="padding:8px 0;border-bottom:1px solid #E6DAC6;text-align:right;font-weight:bold;font-size:17px;color:' + BRAND.red + ';white-space:nowrap">' + v + '</td></tr>'; };
+  return '<table style="width:100%;border-collapse:collapse;margin:6px 0 10px">' + r('<b>Year 1</b>', 'Installation and materials', '$' + money(est.total)) +
+    r('<b>Year 2 and beyond</b>', 'Annual reinstallation, locked rate', '$' + money(year2_(est)) + ' /yr') + '</table>';
 }
 
 function summaryTable(est) {
@@ -475,12 +548,34 @@ function estimatePdf(est) {
     '<td style="padding:12px 8px;text-align:right;font-size:20px;font-weight:bold;color:' + red + ';border-top:3px solid ' + red + '">$' + money(est.total) + '</td></tr></table>' +
 
     (incl ? '<div style="margin-top:8px">' + incl + '</div>' : '') +
+
+    heading('Your pricing') +
+    '<table style="width:' + W + 'px;border-collapse:collapse">' +
+    '<tr><td style="padding:8px;border-bottom:1px solid ' + line + '"><b style="font-size:14px">Year 1</b><br><span style="font-size:11px;color:' + muted + '">Installation and materials</span></td>' +
+    '<td style="padding:8px;border-bottom:1px solid ' + line + ';text-align:right;font-size:18px;font-weight:bold;color:' + red + '">$' + money(est.total) + '</td></tr>' +
+    '<tr><td style="padding:8px"><b style="font-size:14px">Year 2 and beyond</b><br><span style="font-size:11px;color:' + muted + '">Annual reinstallation, locked rate</span></td>' +
+    '<td style="padding:8px;text-align:right;font-size:18px;font-weight:bold;color:' + red + '">$' + money(year2_(est)) + '<span style="font-size:11px;color:' + muted + ';font-weight:normal"> per year</span></td></tr></table>' +
+    '<div style="font-size:11px;color:' + muted + ';font-style:italic;margin-top:2px">Your Year 2 rate is locked in for every year Frisco Christmas Lights reinstalls your display.</div>' +
+
+    heading('About your lights') + '<div style="font-size:12px;line-height:1.6">' + esc(ABOUT_TEXT) + '</div>' +
     (est.notes ? heading('Notes') + '<div style="font-size:12px;line-height:1.55">' + esc(est.notes) + '</div>' : '') +
     preview +
 
+    '<div style="page-break-inside:avoid">' + heading('Terms and Conditions') +
+    TERMS.map(function (t, i) { return '<div style="font-size:10.5px;line-height:1.55;margin-bottom:6px"><b>' + (i + 1) + '. ' + t[0] + '.</b> ' + esc(t[1]) + '</div>'; }).join('') +
+    '<div style="font-size:10.5px;font-style:italic;margin-top:4px">' + TERMS_CLOSE + '</div></div>' +
+
+    (est.signedName
+      ? '<table style="width:' + W + 'px;border-collapse:collapse;margin-top:18px;page-break-inside:avoid"><tr><td style="border-left:4px solid ' + red + ';padding:6px 14px">' +
+        '<div style="font-size:10px;letter-spacing:2px;color:' + gold + ';font-weight:bold">ACCEPTED AND SIGNED ELECTRONICALLY</div>' +
+        '<div style="font-family:Georgia,serif;font-style:italic;font-size:22px;margin:4px 0;border-bottom:1px solid #2B201C;padding-bottom:2px">' + esc(est.signedName) + '</div>' +
+        '<div style="font-size:11px;color:' + muted + '">Signed by <b style="color:#2B201C">' + esc(est.signedName) + '</b> on ' + (est.signedAt ? fmtDateTime_(est.signedAt) : '') + ' \u2022 Estimate ' + est.id + '</div></td></tr></table>'
+      : '<table style="width:' + W + 'px;border-collapse:collapse;margin-top:18px"><tr><td style="border-left:4px solid ' + gold + ';padding:6px 14px;font-size:11.5px">' +
+        '<b>To approve:</b> tap <b>Review &amp; sign estimate</b> in your email to sign online, or call/text ' + BRAND.phone + '.</td></tr></table>') +
+
     '<div style="text-align:center;margin-top:26px;border-top:1px solid ' + line + ';padding-top:14px">' +
     '<div style="font-family:Georgia,serif;font-style:italic;font-size:18px;color:' + red + '">Thank you for choosing Frisco Christmas Lights!</div>' +
-    '<div style="font-size:11px;color:' + muted + ';margin-top:6px">To approve, tap <b>Approve estimate</b> in your email, or call/text ' + BRAND.phone + '.</div></div>' +
+    '<div style="font-size:11px;color:' + muted + ';margin-top:6px">' + BRAND.legal + ' \u2022 ' + BRAND.phone + ' \u2022 friscolights.com</div></div>' +
     '</body></html>';
   return Utilities.newBlob(html, 'text/html', est.id + '.html').getAs('application/pdf').setName('Frisco-Christmas-Lights-' + est.id + '.pdf');
 }
@@ -499,6 +594,7 @@ function ss_() {
   return SpreadsheetApp.openById(id);
 }
 function sheet(name) { var s = ss_().getSheetByName(name); if (!s) throw new Error('Missing tab: ' + name + ' (run setup)'); return s; }
+function ensureCol_(sh, name) { var h = headerIndex(sh); if (h[name] === undefined) { sh.getRange(1, sh.getLastColumn() + 1).setValue(name).setFontWeight('bold'); h = headerIndex(sh); } return h[name]; }
 function headerIndex(sh) { var h = {}; sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].forEach(function (k, i) { h[k] = i; }); return h; }
 
 function settings() {
@@ -536,6 +632,7 @@ function estFromRow(v, h) {
     lines: JSON.parse(v[h['Items JSON']] || '[]'), subtotal: Number(v[h['Subtotal']]) || 0, discount: Number(v[h['Discount']]) || 0,
     tax: Number(v[h['Tax']]) || 0, total: Number(v[h['Total']]) || 0, notes: v[h['Notes']],
     validUntil: new Date(created.getTime() + s.validDays * 864e5), footer: s.footer, token: v[h['Token']],
+    signedName: h['Signed name'] !== undefined ? v[h['Signed name']] : '', signedAt: h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null,
     photoB64: (function () { try { return h['Preview file'] !== undefined && v[h['Preview file']] ? Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()) : ''; } catch (e) { return ''; } })() };
 }
 function recentEstimates(n) {
@@ -554,6 +651,7 @@ function clean(v, n) { return String(v == null ? '' : v).trim().substring(0, n |
 function validEmail(e) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e || '').trim()); }
 function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 function money(n) { return (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtDateTime_(d) { return Utilities.formatDate(d, 'America/Chicago', "MMM d, yyyy 'at' h:mm a 'CT'"); }
 function fmtDate(d) { return Utilities.formatDate(d, 'America/Chicago', 'MMM d, yyyy'); }
 function firstName(n) { return String(n || '').trim().split(/\s+/)[0] || 'there'; }
 function lastName(n) { var p = String(n || '').trim().split(/\s+/); return p.length > 1 ? p.slice(1).join(' ') : ''; }
