@@ -2,6 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-6YV866ML1D"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-6YV866ML1D');
+</script>
+
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Frisco Christmas Lights | Professional Christmas Light Installation in Frisco, TX</title>
 <meta name="description" content="Custom Christmas light installation for homes and businesses in Frisco and North Texas. Design, install, in-season service, and takedown. Free quotes.">
@@ -614,6 +623,15 @@ document.getElementById('yr').textContent=new Date().getFullYear();
     setTimeout(step,Math.random()*1500);
   });
 })();
+// ---- Analytics: track calls, quote requests and photos ----
+function track(name,params){try{if(window.gtag)gtag('event',name,params||{});}catch(e){}}
+document.addEventListener('click',function(e){
+  var a=e.target.closest&&e.target.closest('a'); if(!a) return;
+  var h=a.getAttribute('href')||'';
+  if(h.indexOf('tel:')===0) track('phone_call_click',{link_location:(a.closest('header')?'header':a.closest('.callbar')?'mobile_bar':a.closest('.hero')?'hero':a.closest('footer')?'footer':'page')});
+  else if(h==='#quote') track('quote_button_click',{button_text:a.textContent.trim().slice(0,40)});
+  else if(h.indexOf('mailto:')===0) track('email_click');
+});
 // Gentle snowfall: green booking bar + quote section background
 function letItSnow(box,opts){
   var cv=box&&box.querySelector(':scope > .snow'); if(!cv) return;
@@ -677,7 +695,7 @@ document.querySelectorAll('.photo-box').forEach(function(box){
       c.getContext('2d').drawImage(im,0,0,c.width,c.height);
       var data=c.toDataURL('image/jpeg',0.82);
       form._photo={data:data.split(',')[1],type:'image/jpeg',name:'house-photo.jpg'};
-      img.src=data; prev.hidden=false; add.hidden=true; URL.revokeObjectURL(url);
+      img.src=data; prev.hidden=false; add.hidden=true; URL.revokeObjectURL(url); track('house_photo_added');
     };
     im.onerror=function(){
       URL.revokeObjectURL(url);
@@ -700,6 +718,7 @@ document.querySelectorAll('form.js-quote').forEach(function(form){
     sendPhoto(form).then(function(){ return fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json'}}); })
       .then(function(r){
         if(!r.ok) throw new Error('bad');
+        track('generate_lead',{form:'quote',with_photo:form._photo?'yes':'no'});
         var extra=form._photo?'<p style="margin-top:10px">We got your photo too. Your lighting preview will come with your quote.</p>':'';
         form.innerHTML='<div class="thanks"><h3>Thanks, we got it!</h3><p>We\'ll reach out soon with your free quote. Need us sooner? Call <a href="tel:+19725565120" style="color:var(--red);font-weight:700;text-decoration:none">(972) 556-5120</a>.</p>'+extra+'</div>';
       })
