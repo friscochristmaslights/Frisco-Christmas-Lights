@@ -68,6 +68,9 @@
   .announce{position:relative;overflow:hidden;background:var(--pine);color:#F3E6C8;font-size:.92rem;text-align:center;padding:9px 16px}
   .announce .snow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .announce-text{position:relative;z-index:1}
+  .announce .cd{position:absolute;z-index:1;left:max(20px,calc((100% - 1180px) / 2));top:50%;transform:translateY(-50%);color:#F3E6C8;font-weight:600;font-size:.88rem;white-space:nowrap}
+  @media (max-width:1100px){.announce .cd{display:none}}
+  .announce .js-cd{color:var(--gold-lt);font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.02em}
   .announce a{color:var(--gold-lt);font-weight:700;text-decoration:none;margin-left:8px}
   .announce a:hover{text-decoration:underline}
 
@@ -279,7 +282,8 @@
     section{padding:52px 0}
     .wrap{width:min(1180px,100% - 32px)}
     .a-long{display:none}.a-short{display:inline}
-    .announce{padding:8px 12px;font-size:.88rem}
+    .announce .cd:not([hidden])~.a-short{display:none}
+      .announce{padding:8px 12px;font-size:.88rem}
     .head{margin-bottom:26px}
     .head p,.lede{font-size:1rem}
     .head h2{font-size:2rem}
@@ -340,7 +344,7 @@
 <body>
 <!-- PHONE NUMBER: find and replace (972) 556-5120 and +19725565120 -->
 
-<div class="announce"><canvas class="snow" aria-hidden="true"></canvas><span class="announce-text"><span class="a-long">Now booking installs for the 2026 holiday season.</span><span class="a-short">Booking 2026 installs now.</span><a href="#quote">Reserve your date</a></span></div>
+<div class="announce"><canvas class="snow" aria-hidden="true"></canvas><span class="cd" hidden aria-hidden="true">&#127876; <span class="js-cd"></span> <span class="cd-lbl">until Christmas</span></span><span class="announce-text"><span class="a-long">Now booking installs for the <span class="js-year">2026</span> holiday season.</span><span class="a-short">Booking <span class="js-year">2026</span> installs now.</span><a href="#quote">Reserve your date</a></span></div>
 
 <header class="top">
   <div class="wrap">
@@ -632,6 +636,24 @@ document.addEventListener('click',function(e){
   else if(h==='#quote') track('quote_button_click',{button_text:a.textContent.trim().slice(0,40)});
   else if(h.indexOf('mailto:')===0) track('email_click');
 });
+// Live Christmas countdown in the green bar (ticks every second, visitor's local time)
+(function(){
+  var els=document.querySelectorAll('.announce .js-cd'),wrap=document.querySelectorAll('.announce .cd');
+  function pad(n){return (n<10?'0':'')+n;}
+  function tick(){
+    var now=new Date(),yr=now.getFullYear(),xmas=new Date(yr,11,25),end=new Date(yr,11,26);
+    var isXmas=now>=xmas&&now<end;
+    if(now>=end){yr++;xmas=new Date(yr,11,25);}
+    document.querySelectorAll('.js-year').forEach(function(e){if(e.textContent!=String(yr))e.textContent=yr;});
+    var txt;
+    if(isXmas){txt='Merry Christmas!';wrap.forEach(function(w){var l=w.querySelector('.cd-lbl');if(l)l.style.display='none';});}
+    else{var t=Math.max(0,Math.floor((xmas-now)/1000)),d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60),sec=t%60;
+      txt=d+'d '+pad(h)+'h '+pad(m)+'m '+pad(sec)+'s';}
+    els.forEach(function(e){e.textContent=txt;});
+  }
+  tick();wrap.forEach(function(w){w.hidden=false;});
+  setInterval(tick,1000);
+})();
 // Gentle snowfall: green booking bar + quote section background
 function letItSnow(box,opts){
   var cv=box&&box.querySelector(':scope > .snow'); if(!cv) return;
