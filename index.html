@@ -168,7 +168,6 @@
   .pick-grid input:checked+span{border-color:var(--red);background:#FFF5F6}
   .pick-grid input:checked+span::before{background-color:var(--red);border-color:var(--red);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
   .pick-grid input:focus-visible+span{outline:3px solid var(--gold);outline-offset:2px}
-  .pick .idea[hidden]{display:none}
   label .opt{font-weight:500;font-size:.75rem;color:var(--muted);margin-left:4px}
   .thanks{text-align:center;padding:26px 6px 8px}
   .thanks h3{font-size:1.8rem;margin-bottom:8px;color:var(--red)}
@@ -785,10 +784,7 @@
               <label><input type="checkbox" class="js-light" value="Garage"><span><i>Garage</i></span></label>
               <label><input type="checkbox" class="js-light" value="Ground stakes"><span><i>Ground stakes</i></span></label>
               <label><input type="checkbox" class="js-light" value="Trees (standard wrap)"><span><i>Trees <small>standard wrap</small></i></span></label>
-              <label><input type="checkbox" class="js-light js-custom-idea" value="Custom idea"><span><i>Custom idea</i></span></label>
-              <label><input type="checkbox" class="js-light" value="Not sure, help me decide"><span><i>Not sure? <small>Help me decide</small></i></span></label>
             </div>
-            <label class="idea" hidden>Tell us your idea<textarea name="custom_idea" rows="3" placeholder="Example: wrap the two big oaks in red and white, light the front fence" disabled></textarea></label>
             <input type="hidden" name="lights_wanted" value="">
           </fieldset>
           <label><span>Anything else we should know? <span class="opt">Optional</span></span><textarea name="message" rows="2" placeholder="Gate code, best time to reach you, HOA rules..."></textarea></label>
@@ -1114,18 +1110,11 @@ document.querySelectorAll('.photo-box').forEach(function(box){
   });
 });
 // Send quote forms to Formspree without leaving the page
-// Lights checklist: custom idea box + one readable summary for the email and the Estimates app
+// Lights checklist: one readable summary for the email and the Estimates app
 document.querySelectorAll('.pick').forEach(function(fs){
-  var form=fs.closest('form'),ci=fs.querySelector('.js-custom-idea'),box=fs.querySelector('.idea'),ta=box.querySelector('textarea'),sum=fs.querySelector('[name=lights_wanted]');
-  function update(){
-    box.hidden=!ci.checked;ta.disabled=!ci.checked;
-    var picks=[].map.call(fs.querySelectorAll('input.js-light:checked'),function(i){return i.value;});
-    var t=picks.join(', ');if(ci.checked&&ta.value.trim())t+=' | Custom idea: '+ta.value.trim();
-    sum.value=t;
-  }
-  fs.addEventListener('change',update);ta.addEventListener('input',update);
-  ci.addEventListener('change',function(){if(ci.checked)setTimeout(function(){ta.focus()},50);});
-  form.addEventListener('submit',update,true);update();
+  var form=fs.closest('form'),sum=fs.querySelector('[name=lights_wanted]');
+  function update(){sum.value=[].map.call(fs.querySelectorAll('input.js-light:checked'),function(i){return i.value;}).join(', ');}
+  fs.addEventListener('change',update);form.addEventListener('submit',update,true);update();
 });
 document.querySelectorAll('form.js-quote').forEach(function(form){
   form.addEventListener('submit',function(e){
