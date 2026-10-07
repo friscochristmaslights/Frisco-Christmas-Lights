@@ -381,6 +381,26 @@
     .foot img{width:200px}
     .legal{margin-top:24px}
   }
+
+  /* ---------- Cover fits one screen ---------- */
+  @media (min-width:961px){
+    .hero{min-height:calc(100vh - 123px);min-height:calc(100svh - 123px);display:flex;align-items:center}
+    .hero .hero-grid{width:min(1180px,100% - 40px);min-height:0;padding:clamp(14px,3vh,48px) 0 clamp(18px,4vh,64px)}
+    .logo-wrap{width:min(600px,100%,60vh);margin-bottom:clamp(4px,1.2vh,18px)}
+    .hero h1{font-size:clamp(1.9rem,5.2vh,3.1rem);max-width:21ch}
+    .hero-copy p{font-size:clamp(.95rem,2.1vh,1.12rem);margin:clamp(8px,2vh,22px) 0 clamp(10px,2.4vh,26px);max-width:58ch}
+    .checks{grid-template-columns:repeat(4,max-content);gap:8px 22px;margin-bottom:clamp(14px,3vh,32px);font-size:clamp(.85rem,1.9vh,1rem)}
+    .hero-actions .btn{padding:clamp(11px,1.7vh,15px) clamp(18px,2.4vh,26px)}
+  }
+  @media (max-width:640px){
+    .hero{min-height:calc(100vh - 39px - 78px);min-height:calc(100svh - 39px - 78px)}
+    .hero .hero-grid{padding:clamp(14px,3vh,28px) 0 clamp(16px,3vh,32px)}
+    .logo-wrap{margin-bottom:2px}
+    .hero h1{font-size:clamp(1.7rem,4.6vh,2.15rem)}
+    .hero-copy p{font-size:.93rem;line-height:1.5;margin:10px 0 14px}
+    .checks{margin-bottom:0;font-size:.86rem}
+    .hero-actions{display:none}
+  }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
@@ -787,40 +807,58 @@ function buildSantaSVG(){
     '</g></svg>';
 }
 
-// Santa fly-by over the hero: far pass over the house, pause, then a close fast pass at street level
+// Santa fly-by over the hero: far pass over the house, pause, then a close fast pass at street level.
+// Clock-based engine: always finishes its cycle and hides itself, even if scrolling or tab switching pauses rendering.
 (function(){
   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var hero=document.querySelector('.hero'); if(!hero||!Element.prototype.animate) return;
+  var hero=document.querySelector('.hero'); if(!hero) return;
   var layer=document.createElement('div');layer.className='santa-fly';
   var team=document.createElement('div');team.className='santa-team';
   team.innerHTML='<div class="flip">'+buildSantaSVG()+'</div>';
   layer.appendChild(team);hero.appendChild(layer);
-  var flip=team.firstChild,running=false,inView=true;
-  var RATIO=230/800;
-  function sleep(ms){return new Promise(function(r){setTimeout(r,ms)});}
+  var flip=team.firstChild,running=false,RATIO=230/800;
+  function hide(){team.style.opacity='0';team.style.transform='translate3d(-9999px,0,0)';team.style.filter='';layer.classList.remove('near');}
+  hide();
+  function cr(p0,p1,p2,p3,t){var t2=t*t,t3=t2*t;return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);}
+  function at(pts,u){var n=pts.length-1,f=Math.min(n-1e-6,Math.max(0,u*n)),i=Math.floor(f),t=f-i,o=[];
+    var P=function(k){return pts[Math.max(0,Math.min(n,k))];};
+    for(var c=0;c<3;c++)o.push(cr(P(i-1)[c],P(i)[c],P(i+1)[c],P(i+2)[c],t));return o;}
+  function fly(pts,dur,ease,opacity){
+    return new Promise(function(done){
+      var start=performance.now(),finished=false;
+      function end(){if(finished)return;finished=true;done();}
+      setTimeout(end,dur+600);              // safety net: the pass always ends, even if frames stop
+      function frame(now){
+        if(finished)return;
+        var u=Math.min(1,(now-start)/dur),p=at(pts,ease(u));
+        team.style.transform='translate3d('+p[0].toFixed(1)+'px,'+p[1].toFixed(1)+'px,0) rotate('+p[2].toFixed(2)+'deg)';
+        team.style.opacity=opacity;
+        if(u>=1)end();else requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
   function pass1(){
     var W=hero.clientWidth,H=hero.clientHeight,w=Math.min(420,W*0.42),h=w*RATIO;
-    team.style.width=w+'px';flip.style.transform='none';layer.classList.remove('near');
-    var k=[[-w*1.05,H*0.42,-9],[W*0.2,H*0.22,-8],[W*0.5,H*0.08,-3],[W*0.78,H*0.05,1],[W+w*0.1,H*0.09,3]];
-    return team.animate(k.map(function(p,i){return {transform:'translate('+p[0]+'px,'+(p[1]-h/2)+'px) rotate('+p[2]+'deg)',opacity:i===0?0.85:0.95};}),
-      {duration:7000,easing:'linear',fill:'forwards'}).finished;
+    team.style.width=w+'px';flip.style.transform='none';layer.classList.remove('near');team.style.filter='';
+    var pts=[[-w*1.05,H*0.42-h/2,-9],[W*0.2,H*0.22-h/2,-8],[W*0.5,H*0.08-h/2,-3],[W*0.78,H*0.05-h/2,1],[W+w*0.1,H*0.09-h/2,3]];
+    return fly(pts,7000,function(u){return u;},'0.95');
   }
   function pass2(){
-    var W=hero.clientWidth,H=hero.clientHeight,w=Math.max(W*0.92,720),h=w*RATIO;
-    team.style.width=w+'px';flip.style.transform='scaleX(-1)';layer.classList.add('near');
+    var W=hero.clientWidth,H=hero.clientHeight,w=Math.max(W*0.92,720),h=w*RATIO,top=Math.max(H*0.22,H-h*1.18);
+    team.style.width=w+'px';flip.style.transform='scaleX(-1)';layer.classList.add('near');team.style.filter='blur(0.6px)';
     setTimeout(function(){hero.classList.add('shake');setTimeout(function(){hero.classList.remove('shake')},500);},420);
-    var top=Math.max(H*0.22,H-h*1.18);
-    var k=[[W+w*0.05,top+h*0.06,4],[W*0.35,top-h*0.04,1],[-w*0.4,top,-2],[-w*1.1,top-h*0.1,-5]];
-    return team.animate(k.map(function(p){return {transform:'translate('+p[0]+'px,'+p[1]+'px) rotate('+p[2]+'deg)',opacity:1,filter:'blur(0.6px)'};}),
-      {duration:1500,easing:'cubic-bezier(.45,0,.85,.6)',fill:'forwards'}).finished;
+    var pts=[[W+w*0.05,top+h*0.06,4],[W*0.35,top-h*0.04,1],[-w*0.4,top,-2],[-w*1.1,top-h*0.1,-5]];
+    return fly(pts,1500,function(u){return u*u*(1.35-0.35*u);},'1');
   }
+  function sleep(ms){return new Promise(function(r){setTimeout(r,ms)});}
   function run(){
-    if(running||!inView||document.hidden)return;running=true;
-    pass1().then(function(){team.style.opacity=0;return sleep(4000);})
-      .then(pass2).then(function(){team.style.opacity=0;team.getAnimations().forEach(function(a){a.cancel()});running=false;})
-      .catch(function(){running=false;});
+    if(running||document.hidden)return;
+    var r=hero.getBoundingClientRect(); if(r.bottom<0||r.top>innerHeight)return;   // start only when the cover is on screen
+    running=true;
+    pass1().then(function(){hide();return sleep(4000);}).then(pass2)
+      .then(function(){hide();running=false;},function(){hide();running=false;});
   }
-  if('IntersectionObserver' in window)new IntersectionObserver(function(es){inView=es[0].isIntersecting;}).observe(hero);
   setTimeout(run,2200);
   setInterval(run,45000);
 })();
