@@ -25,7 +25,7 @@
   .tabs{display:flex;gap:4px;margin-top:6px}
   .tabs button{flex:1;background:none;border:0;color:#B7AA98;font-weight:700;padding:12px 0;border-bottom:3px solid transparent}
   .tabs button.on{color:#fff;border-bottom-color:var(--gold)}
-  main{padding:14px 14px calc(120px + env(safe-area-inset-bottom,0px))}
+  main{padding:14px 14px calc(170px + env(safe-area-inset-bottom,0px))}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
   .card h2{margin:0 0 12px;font-family:Georgia,serif;font-size:1.25rem;color:var(--red)}
   label.f{display:block;font-weight:600;font-size:.85rem;margin-bottom:10px}
@@ -65,7 +65,39 @@
   .photo-prev img{width:110px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
   .linkbtn{background:none;border:0;color:var(--red);font-weight:700;text-decoration:underline;padding:0}
   .bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;box-shadow:0 -8px 24px rgba(0,0,0,.08)}
-  .bar .tot{flex:1;line-height:1.15}
+  .bar{flex-wrap:wrap;row-gap:8px}
+  .bar .tot{flex:1;line-height:1.15;min-width:0}
+  .bar .acts{display:flex;gap:10px;width:100%}
+  .bar .acts .btn{flex:1;padding:14px 10px}
+  .bar .btn.pvb{background:#fff;color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red);flex:0 0 38%}
+  .savebtn{background:none;border:1.5px solid var(--line);border-radius:999px;padding:7px 12px;font-weight:700;font-size:.82rem;color:var(--ink);white-space:nowrap}
+  .savebtn.ok{border-color:var(--ok);color:var(--ok)}
+  @media (min-width:760px){.bar{flex-wrap:nowrap;max-width:none}.bar .acts{width:auto}.bar .acts .btn{flex:none;padding:15px 22px}.bar .btn.pvb{flex:none}main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}}
+  .draftbar{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#EEF4EF;color:#14563A;border-radius:10px;padding:9px 12px;font-weight:700;font-size:.85rem;margin-bottom:14px}
+  .draftbar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .draftbar button{flex:none;color:#14563A}
+  .drow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:11px 2px;border-bottom:1px solid var(--line)}
+  .drow:last-child{border-bottom:0}
+  .drow .nm{font-weight:700}.drow .sub{color:var(--muted);font-size:.8rem}
+  .drow .row{display:flex;gap:12px;align-items:center}
+  .drow .btn{padding:9px 14px;font-size:.88rem}
+  .toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#14563A;color:#fff;font-weight:700;padding:10px 16px;border-radius:999px;z-index:80;box-shadow:0 8px 20px rgba(0,0,0,.2);font-size:.9rem;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+  .toast.on{opacity:1}
+  .pv{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;flex-direction:column}
+  .pv-top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;background:#100A09;color:#fff}
+  .pv-top b{flex:1;text-align:center;font-size:.95rem}
+  .pv-top button{border:0;border-radius:10px;padding:10px 14px;font-weight:800;background:#2a201d;color:#fff}
+  .pv-top button.go{background:var(--red2)}
+  .pv-tabs{padding:10px 12px;background:#fff;border-bottom:1px solid var(--line)}
+  .pv-tabs .seg{max-width:560px;margin:0 auto}
+  .pv-note{max-width:640px;margin:0 auto;padding:10px 4px 0;color:var(--muted);font-size:.8rem;text-align:center}
+  .pv-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:0 10px 30px}
+  .pv-mail{max-width:640px;margin:10px auto 0;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .pv-hdr{padding:10px 14px;border-bottom:1px solid var(--line);font-size:.85rem;line-height:1.5}
+  .pv-hdr span{color:var(--muted)}
+  .pv-mail iframe{display:block;width:100%;border:0;height:600px}
+  .pv-pdf{max-width:760px;margin:10px auto 0}
+  .pv-load{padding:60px 20px;text-align:center;color:var(--muted);font-weight:700}
   .bar .tot small{display:block;color:var(--muted);font-size:.75rem}
   .bar .tot b{font-size:1.45rem;color:var(--red)}
   .btn{border:0;border-radius:12px;padding:15px 20px;font-weight:800;font-size:1rem;background:var(--red);color:#fff}
@@ -220,6 +252,7 @@
       <div class="err" id="formErr" hidden></div>
       <div id="doneBox" class="card done" hidden></div>
       <div id="form">
+        <div class="draftbar" id="draftBar" hidden><span id="draftTxt"></span><button class="linkbtn" id="draftNew">New blank</button></div>
         <div class="from-lead" id="fromLead" hidden><span id="fromLeadTxt"></span><button class="linkbtn" id="unlinkLead">Clear</button></div>
         <div class="card mode-card">
           <div class="seg" id="modeSeg"><button data-m="new" class="on">New install</button><button data-m="rep">Repurpose</button></div>
@@ -291,6 +324,7 @@
     </div>
 
     <div id="tab-recent" hidden>
+      <div class="card" id="draftsCard" hidden><h2>Drafts</h2><div id="drafts"></div></div>
       <div class="card" id="leadsCard" hidden><h2>Needs an estimate</h2><div id="leads"></div></div>
       <div id="listView">
         <div class="card">
@@ -308,10 +342,22 @@
 
   <div class="bar" id="bar">
     <div class="tot"><small id="totNote">Total</small><b id="total">$0.00</b></div>
-    <button class="btn" id="send">Send estimate</button>
+    <button class="savebtn" id="saveDraft" type="button">Save draft</button>
+    <div class="acts"><button class="btn pvb" id="preview" type="button">Preview</button><button class="btn" id="send">Send estimate</button></div>
   </div>
 </div>
 
+
+<div class="pv" id="pv" hidden>
+  <div class="pv-top"><button id="pvBack" type="button">&larr; Edit</button><b>What the customer sees</b><button class="go" id="pvSend" type="button">Send</button></div>
+  <div class="pv-tabs"><div class="seg" id="pvSeg"><button data-v="mail" class="on" type="button">Email</button><button data-v="pdf" type="button">PDF</button></div></div>
+  <div class="pv-body" id="pvBody">
+    <div class="pv-load" id="pvLoad">Building the preview...</div>
+    <div id="pvMailWrap" hidden><p class="pv-note">Preview only. Nothing has been sent or saved.</p><div class="pv-mail"><div class="pv-hdr"><span>To:</span> <b id="pvTo"></b><br><span>Subject:</span> <b id="pvSubj"></b><br><span>Attached:</span> <b id="pvAtt"></b></div><iframe id="pvFrame" sandbox="allow-same-origin allow-popups" title="Email preview"></iframe></div></div>
+    <div id="pvPdfWrap" hidden><p class="pv-note">This is the exact PDF attached to their email.</p><div class="pv-pdf"><div class="pdfbox" id="pvPdfBox"></div></div></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
 
 <div class="designer" id="designer" hidden>
   <div class="d-top">
@@ -359,6 +405,7 @@ function boot(){
   if(!state.pin){$('#lock').hidden=false;$('#app').hidden=true;setTimeout(function(){$('#pin').focus()},200);return;}
   var cached=localStorage.getItem('fcl_prices'); if(cached){try{var c=JSON.parse(cached);state.prices=c.items;state.settings=c.settings;renderItems();}catch(e){}}
   $('#lock').hidden=true;$('#app').hidden=false;
+  if(!state.restored){state.restored=true;var cd=null;try{cd=localStorage.getItem('fcl_cur_draft')}catch(e){}if(cd&&allDrafts()[cd])loadDraft(cd);}
   api({a:'prices',pin:state.pin}).then(function(r){
     if(!r.ok){ if(/PIN/.test(r.error)){lock('That PIN no longer works.');} else showErr($('#formErr'),r.error); return; }
     state.prices=r.items;state.settings=r.settings;localStorage.setItem('fcl_prices',JSON.stringify(r));renderItems();refreshBadge();
@@ -380,7 +427,7 @@ $('#lockBtn').onclick=function(){if(confirm('Lock the app? You\'ll need the PIN 
 document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){
   document.querySelectorAll('.tabs button').forEach(function(x){x.classList.toggle('on',x===b)});
   var t=b.dataset.tab;$('#tab-new').hidden=t!=='new';$('#tab-recent').hidden=t!=='recent';$('#bar').hidden=t!=='new';
-  if(t==='recent'){if(!$('#detailView').hidden)showList();loadRecent();}window.scrollTo(0,0);
+  if(t==='recent'){saveDraft(false);renderDrafts();if(!$('#detailView').hidden)showList();loadRecent();}window.scrollTo(0,0);
 }});
 
 /* ---------- items ---------- */
@@ -392,7 +439,7 @@ function origLabor(){return Math.max(0,Math.round((Number($('#origLabor').value.
 function setMode(m){
   state.mode=m;document.querySelectorAll('#modeSeg button').forEach(function(x){x.classList.toggle('on',x.dataset.m===m)});
   var r=isRep();$('#repExplain').hidden=!r;$('#repCard').hidden=!r;$('#itemsHint').hidden=!r;$('#repSum').hidden=!r;
-  $('#itemsTitle').textContent=r?'Footage at the new house':'Lights';$('#send').textContent=r?'Send repurpose estimate':'Send estimate';
+  $('#itemsTitle').textContent=r?'Footage at the new house':'Lights';$('#send').textContent=sendLabel();
   renderItems();
 }
 document.querySelectorAll('#modeSeg button').forEach(function(b){b.onclick=function(){if(state.mode!==b.dataset.m)setMode(b.dataset.m);}});
@@ -458,45 +505,157 @@ $('#photo').onchange=function(){
   var f=this.files[0];if(!f)return;var url=URL.createObjectURL(f),im=new Image();
   im.onload=function(){var mx=1800,sc=Math.min(1,mx/Math.max(im.width,im.height)),c=document.createElement('canvas');
     c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-    var d=c.toDataURL('image/jpeg',.85);state.photo=d.split(',')[1];$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;URL.revokeObjectURL(url);};
+    var d=c.toDataURL('image/jpeg',.85);state.photo=d.split(',')[1];$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;URL.revokeObjectURL(url);scheduleSave();};
   im.onerror=function(){alert('Could not read that photo. Try another one.');};
   im.src=url;
 };
-$('#photoRm').onclick=function(){state.photo=null;$('#photo').value='';$('#photoPrev').hidden=true;$('#photoBtn').hidden=false;};
+$('#photoRm').onclick=function(){scheduleSave();state.photo=null;$('#photo').value='';$('#photoPrev').hidden=true;$('#photoBtn').hidden=false;};
 
 /* ---------- send ---------- */
-$('#send').onclick=function(){
-  if(state.sending)return;
+function sendLabel(){return isRep()?'Send repurpose':'Send estimate';}
+// Validate the form and build what goes to the server. Returns null (and shows the problem) if something is missing.
+function collect(){
   var v=function(id){return $(id).value.trim()};
   var cust={name:v('#c-name'),phone:v('#c-phone'),email:v('#c-email'),street:v('#c-street'),city:v('#c-city'),zip:v('#c-zip')};
-  if(!cust.name)return showErr($('#formErr'),'Add the customer\'s name.');
-  if(!cust.street)return showErr($('#formErr'),'Add the street address.');
-  if(cust.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cust.email))return showErr($('#formErr'),'That email doesn\'t look right.');
-  if(isRep()&&!origLabor())return showErr($('#formErr'),'Add the original labor cost (their yearly reinstall price).');
-  if(isRep()&&!curItems().some(function(p){return state.qtyR[p.item]>0}))return showErr($('#formErr'),'Add the footage for the new house.');
-  if(!calc())return showErr($('#formErr'),'Add at least one item.');
-  var onsite=$('#onsite').checked;
-  if(!cust.email&&!onsite&&!confirm('No customer email. The estimate will only be emailed to you so you can text or print it. Continue?'))return;
+  var bad=function(m){showErr($('#formErr'),m);return null;};
+  if(!cust.name)return bad('Add the customer\'s name.');
+  if(!cust.street)return bad('Add the street address.');
+  if(cust.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cust.email))return bad('That email doesn\'t look right.');
+  if(isRep()&&!origLabor())return bad('Add the original labor cost (their yearly reinstall price).');
+  if(isRep()&&!curItems().some(function(p){return state.qtyR[p.item]>0}))return bad('Add the footage for the new house.');
+  if(!calc())return bad('Add at least one item.');
   showErr($('#formErr'),'');
   var Q=curQty(),items=curItems().filter(function(p){return Q[p.item]>0}).map(function(p){return {item:p.item,qty:Q[p.item]}});
   var custom=state.custom.filter(function(c){return c.desc&&c.amount});
+  return {type:isRep()?'repurpose':'new',originalLabor:isRep()?origLabor():0,customer:cust,items:items,custom:custom,discountType:state.disc,discountValue:Number($('#discVal').value)||0,
+    notes:$('#notes').value.trim(),photo:state.photo,approvedOnSite:$('#onsite').checked,leadId:state.leadId};
+}
+$('#send').onclick=function(){
+  if(state.sending)return;
+  var d=collect();if(!d)return;
+  if(!d.customer.email&&!d.approvedOnSite&&!confirm('No customer email. The estimate will only be emailed to you so you can text or print it. Continue?'))return;
+  d.a='estimate';var cust=d.customer;
   state.sending=true;var b=$('#send');b.disabled=true;b.textContent='Sending...';
-  post({a:'estimate',type:isRep()?'repurpose':'new',originalLabor:isRep()?origLabor():0,customer:cust,items:items,custom:custom,discountType:state.disc,discountValue:Number($('#discVal').value)||0,
-        notes:$('#notes').value.trim(),photo:state.photo,approvedOnSite:onsite,leadId:state.leadId})
-  .then(function(r){
-    state.sending=false;b.disabled=false;b.textContent=isRep()?'Send repurpose estimate':'Send estimate';
+  post(d).then(function(r){
+    state.sending=false;b.disabled=false;b.textContent=sendLabel();
     if(!r.ok){ if(/PIN/.test(r.error))return lock('Your PIN changed. Enter the new one.'); return showErr($('#formErr'),r.error||'Something went wrong.'); }
+    deleteDraft(state.draftId);state.draftId=null;try{localStorage.removeItem('fcl_cur_draft')}catch(e){}
     var msg=r.approved?'Approved and sent to the office for QuickBooks.':(r.emailed?'Emailed to '+cust.email+' with an Approve button.':'Saved. The PDF was emailed to you to text or print.');
     $('#doneBox').innerHTML='<div class="big">&#127876;</div><h2>'+(r.approved?'Approved!':'Estimate sent!')+'</h2><p><b></b></p><p class="muted"></p><button class="btn" id="again">New estimate</button>';
-    $('#doneBox b').textContent=r.id+' \u2022 '+money(r.total);$('#doneBox .muted').textContent=msg;
-    $('#doneBox').hidden=false;$('#form').hidden=true;$('#bar').hidden=true;window.scrollTo(0,0);
+    $('#doneBox b').textContent=r.id+' • '+money(r.total);$('#doneBox .muted').textContent=msg;
+    $('#doneBox').hidden=false;$('#form').hidden=true;$('#bar').hidden=true;$('#draftBar').hidden=true;window.scrollTo(0,0);
     $('#again').onclick=resetForm;
-  }).catch(function(){state.sending=false;b.disabled=false;b.textContent=isRep()?'Send repurpose estimate':'Send estimate';showErr($('#formErr'),'No connection. Nothing was sent. Try again when you have signal.');});
+  }).catch(function(){state.sending=false;b.disabled=false;b.textContent=sendLabel();showErr($('#formErr'),'No connection. Nothing was sent. Try again when you have signal.');});
 };
+
+/* ---------- preview (customer's view) ---------- */
+function pvTab(t){document.querySelectorAll('#pvSeg button').forEach(function(x){x.classList.toggle('on',x.dataset.v===t)});
+  $('#pvMailWrap').hidden=t!=='mail'||!state.pv;$('#pvPdfWrap').hidden=t!=='pdf'||!state.pv;$('#pvBody').scrollTop=0;
+  if(t==='pdf'&&state.pv&&!state.pv.drawn){state.pv.drawn=true;renderPdfBytes($('#pvPdfBox'),b64ToBytes(state.pv.pdf));}}
+document.querySelectorAll('#pvSeg button').forEach(function(b){b.onclick=function(){pvTab(b.dataset.v)}});
+function closePv(){$('#pv').hidden=true;document.body.style.overflow='';}
+$('#pvBack').onclick=closePv;
+$('#pvSend').onclick=function(){closePv();$('#send').click();};
+$('#preview').onclick=function(){
+  var d=collect();if(!d)return;
+  d.a='preview';var key=JSON.stringify(d).length+'|'+JSON.stringify(Object.assign({},d,{photo:d.photo?d.photo.length:0}));
+  var b=this;$('#pv').hidden=false;document.body.style.overflow='hidden';$('#pvSend').textContent=d.approvedOnSite?'Approve':'Send';
+  if(state.pv&&state.pvKey===key){pvTab('mail');return;}
+  state.pv=null;$('#pvLoad').hidden=false;$('#pvLoad').textContent='Building the preview...';$('#pvMailWrap').hidden=true;$('#pvPdfWrap').hidden=true;
+  b.disabled=true;b.textContent='Loading...';
+  post(d).then(function(r){
+    b.disabled=false;b.textContent='Preview';
+    if(!r.ok){ if(/PIN/.test(r.error)){closePv();return lock('Your PIN changed. Enter the new one.');}
+      $('#pvLoad').textContent=/Unknown action/.test(r.error)?'Preview needs the new Code.gs. Paste it into Apps Script and deploy a New version.':(r.error||'Something went wrong.');return;}
+    state.pv=r;state.pvKey=key;$('#pvLoad').hidden=true;$('#pvPdfBox').innerHTML='';
+    $('#pvTo').textContent=d.approvedOnSite?'Not emailed (approved on site). Office gets the PDF.':(d.customer.email||'No email on file. Only you get the PDF to text or print.');
+    $('#pvSubj').textContent=r.emailSubject;$('#pvAtt').textContent=r.name+(d.photo?' + lighting preview photo':'');
+    var f=$('#pvFrame');
+    f.onload=function(){try{var h=f.contentDocument.documentElement.scrollHeight;f.style.height=(h+10)+'px';}catch(e){}};
+    f.srcdoc='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank"></head><body style="margin:0">'+r.emailHtml+'</body></html>';
+    pvTab('mail');
+  }).catch(function(){b.disabled=false;b.textContent='Preview';$('#pvLoad').textContent='No connection. Try again when you have signal.';});
+};
+
+/* ---------- drafts (auto-saved on this phone) ---------- */
+function allDrafts(){try{return JSON.parse(localStorage.getItem('fcl_drafts')||'{}')}catch(e){return {}}}
+function putDrafts(o){localStorage.setItem('fcl_drafts',JSON.stringify(o));}
+function deleteDraft(id){if(!id)return;var o=allDrafts();delete o[id];try{putDrafts(o)}catch(e){}}
+function formHasContent(){
+  var v=function(id){return $(id).value.trim()};
+  if(v('#c-name')||v('#c-phone')||v('#c-email')||v('#c-street')||v('#c-zip')||v('#notes')||v('#origLabor')||state.photo||state.custom.length)return true;
+  var q=function(o){return Object.keys(o).some(function(k){return o[k]>0})};return q(state.qty)||q(state.qtyR);
+}
+function draftData(){
+  var v=function(id){return $(id).value};
+  var rows=[].map.call($('#reqList').querySelectorAll('dt'),function(dt){return [dt.textContent,dt.nextElementSibling?dt.nextElementSibling.textContent:''];});
+  return {mode:state.mode,f:{name:v('#c-name'),phone:v('#c-phone'),email:v('#c-email'),street:v('#c-street'),city:v('#c-city'),zip:v('#c-zip')},
+    qty:state.qty,qtyR:state.qtyR,orig:v('#origLabor'),custom:state.custom,disc:state.disc,discVal:v('#discVal'),notes:v('#notes'),onsite:$('#onsite').checked,
+    photo:state.photo,leadId:state.leadId,leadTxt:state.leadId?$('#fromLeadTxt').textContent:'',leadRows:state.leadId?rows:[],savedAt:Date.now()};
+}
+function saveDraft(manual){
+  clearTimeout(state.saveT);
+  if(state.restoring||!$('#form')||$('#form').hidden)return false;
+  if(!formHasContent()){if(manual)toast('Nothing to save yet');return false;}
+  if(!state.draftId)state.draftId='d'+Date.now().toString(36);
+  var o=allDrafts(),d=draftData(),dropped=false;o[state.draftId]=d;
+  try{putDrafts(o);}catch(e){ d.photo=null;dropped=true;o[state.draftId]=d; try{putDrafts(o);}catch(e2){ if(manual)toast('Couldn\'t save. Phone storage is full.');return false; } }
+  try{localStorage.setItem('fcl_cur_draft',state.draftId)}catch(e){}
+  showDraftBar(d);
+  if(manual){toast(dropped?'Draft saved (photo too big to keep)':'Draft saved ✓');var sb=$('#saveDraft');sb.textContent='Saved ✓';sb.classList.add('ok');
+    clearTimeout(state.sbT);state.sbT=setTimeout(function(){sb.textContent='Save draft';sb.classList.remove('ok')},1800);}
+  return true;
+}
+function scheduleSave(){if(state.restoring)return;clearTimeout(state.saveT);state.saveT=setTimeout(function(){saveDraft(false)},700);}
+function fmtTime(t){var d=new Date(t),now=new Date(),tm=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  return d.toDateString()===now.toDateString()?tm:d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+tm;}
+function showDraftBar(d){$('#draftTxt').textContent='📝 Draft'+(d.f.name?' • '+d.f.name:'')+' • saved '+fmtTime(d.savedAt);$('#draftBar').hidden=false;}
+function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(state.toastT);state.toastT=setTimeout(function(){t.classList.remove('on')},1900);}
+function loadDraft(id){
+  var d=allDrafts()[id];if(!d)return false;
+  state.restoring=true;
+  resetFields();clearLead();
+  state.draftId=id;
+  var f=d.f||{};$('#c-name').value=f.name||'';$('#c-phone').value=f.phone||'';$('#c-email').value=f.email||'';$('#c-street').value=f.street||'';$('#c-city').value=f.city||'Frisco';$('#c-zip').value=f.zip||'';
+  state.qty=d.qty||{};state.qtyR=d.qtyR||{};$('#origLabor').value=d.orig||'';state.custom=d.custom||[];renderCustom();
+  state.disc=d.disc||'amt';document.querySelectorAll('#discType button').forEach(function(x){x.classList.toggle('on',x.dataset.v===state.disc)});
+  $('#discVal').value=d.discVal||'';$('#notes').value=d.notes||'';$('#onsite').checked=!!d.onsite;
+  if(d.photo){state.photo=d.photo;$('#photoPrev img').src='data:image/jpeg;base64,'+d.photo;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;}
+  if(d.leadId){state.leadId=d.leadId;$('#fromLeadTxt').textContent=d.leadTxt||('From website request '+d.leadId);$('#fromLead').hidden=false;
+    var dl=$('#reqList');dl.innerHTML='';(d.leadRows||[]).forEach(function(x){var dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=x[0];dd.textContent=x[1];dl.appendChild(dt);dl.appendChild(dd);});
+    $('#reqCard').hidden=!(d.leadRows||[]).length;}
+  setMode(d.mode||'new');
+  state.restoring=false;
+  try{localStorage.setItem('fcl_cur_draft',id)}catch(e){}
+  showDraftBar(d);return true;
+}
+function renderDrafts(){
+  var o=allDrafts(),ids=Object.keys(o).sort(function(a,b){return o[b].savedAt-o[a].savedAt}),box=$('#drafts');
+  box.innerHTML='';$('#draftsCard').hidden=!ids.length;
+  ids.forEach(function(id){var d=o[id],f=d.f||{};
+    var r=document.createElement('div');r.className='drow';
+    r.innerHTML='<div><div class="nm"></div><div class="sub"></div></div><div class="row"><button class="linkbtn" type="button">Delete</button><button class="btn" type="button">Open</button></div>';
+    r.querySelector('.nm').textContent=(f.name||'No name yet')+(d.mode==='rep'?'':'');
+    if(d.mode==='rep'){var tg=document.createElement('span');tg.className='tag-rep';tg.textContent='Moved';r.querySelector('.nm').appendChild(tg);}
+    r.querySelector('.sub').textContent=[f.street,'Saved '+fmtTime(d.savedAt)].filter(Boolean).join(' • ');
+    var bs=r.querySelectorAll('button');
+    bs[0].onclick=function(){if(!confirm('Delete this draft'+(f.name?' for '+f.name:'')+'?'))return;deleteDraft(id);
+      if(state.draftId===id){state.draftId=null;$('#draftBar').hidden=true;try{localStorage.removeItem('fcl_cur_draft')}catch(e){}}renderDrafts();};
+    bs[1].onclick=function(){if(state.draftId&&state.draftId!==id)saveDraft(false);goTab('new');loadDraft(id);window.scrollTo(0,0);};
+    box.appendChild(r);
+  });
+}
+$('#saveDraft').onclick=function(){saveDraft(true)};
+$('#draftNew').onclick=function(){saveDraft(false);if(!confirm('Start a blank estimate? This draft stays saved under Recent → Drafts.'))return;resetFields();clearLead();toast('Draft kept in Recent → Drafts');};
+$('#form').addEventListener('input',scheduleSave);$('#form').addEventListener('change',scheduleSave);$('#form').addEventListener('click',function(e){if(e.target.closest('button'))scheduleSave();});
+window.addEventListener('pagehide',function(){saveDraft(false)});
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')saveDraft(false)});
+
 function resetForm(){
+  state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
   state.qty={};state.qtyR={};$('#origLabor').value='';state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
-  clearLead();$('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;window.scrollTo(0,0);refreshBadge();
+  clearLead();$('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;window.scrollTo(0,0);refreshBadge();state.restoring=false;
 }
 
 /* ---------- recent + leads ---------- */
@@ -559,11 +718,11 @@ var IC={call:'<svg viewBox="0 0 24 24"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6
   mail:'<svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg>',
   map:'<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>'};
 state.pdfs={};
-function showList(){$('#detailView').hidden=true;$('#listView').hidden=false;$('#leadsCard').hidden=!$('#leads').children.length;window.scrollTo(0,state.listY||0);}
+function showList(){$('#detailView').hidden=true;$('#listView').hidden=false;$('#leadsCard').hidden=!$('#leads').children.length;$('#draftsCard').hidden=!$('#drafts').children.length;window.scrollTo(0,state.listY||0);}
 function esc2(t){var d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
 function openEst(id){
   state.listY=window.scrollY;var dv=$('#detailView');
-  $('#listView').hidden=true;$('#leadsCard').hidden=true;dv.hidden=false;window.scrollTo(0,0);
+  $('#listView').hidden=true;$('#leadsCard').hidden=true;$('#draftsCard').hidden=true;dv.hidden=false;window.scrollTo(0,0);
   dv.innerHTML='<div class="dt-top"><button class="back" id="dtBack">Estimates</button></div><div class="card"><p class="empty">Loading estimate...</p></div>';
   $('#dtBack').onclick=showList;
   api({a:'est',pin:state.pin,id:id}).then(function(r){
@@ -606,6 +765,15 @@ function pdfLib(){
   if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
   return new Promise(function(ok,no){var sc=document.createElement('script');sc.src=PDFJS+'pdf.min.js';
     sc.onload=function(){window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js';ok(window.pdfjsLib);};sc.onerror=no;document.head.appendChild(sc);});
+}
+function renderPdfBytes(box,bytes){
+  box.innerHTML='<span class="ld">Loading the PDF...</span>';
+  return pdfLib().then(function(lib){return lib.getDocument({data:bytes}).promise;}).then(function(doc){
+    box.innerHTML='';var w=Math.max(260,box.clientWidth-20),dpr=Math.min(window.devicePixelRatio||1,2),chain=Promise.resolve();
+    for(var n=1;n<=doc.numPages;n++)(function(n){chain=chain.then(function(){return doc.getPage(n).then(function(pg){
+      var v=pg.getViewport({scale:1}),sc=w/v.width,vp=pg.getViewport({scale:sc*dpr}),c=document.createElement('canvas');
+      c.width=vp.width;c.height=vp.height;box.appendChild(c);return pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;});});})(n);
+    return chain;}).catch(function(){box.innerHTML='<span class="ld">Couldn\'t draw the PDF here (no connection to the PDF viewer).</span>';});
 }
 function loadPdf(id){
   var got=state.pdfs[id]?Promise.resolve(state.pdfs[id]):api({a:'pdf',pin:state.pin,id:id}).then(function(r){if(!r.ok)throw new Error(r.error);state.pdfs[id]=r;return r;});
@@ -650,9 +818,11 @@ function startFromLead(id,btn){
 function clearLead(){state.leadId='';$('#designLeadBtn').hidden=true;$('#fromLead').hidden=true;$('#reqCard').hidden=true;$('#reqPhoto').hidden=true;$('#reqPhotoHint').hidden=true;$('#reqPhoto').removeAttribute('src');}
 $('#unlinkLead').onclick=function(){if(confirm('Clear this lead and start a blank estimate?')){resetFields();clearLead();}};
 function resetFields(){
+  var wasRestoring=state.restoring;state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
   state.qty={};state.qtyR={};$('#origLabor').value='';state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
   $('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;showErr($('#formErr'),'');
+  state.restoring=wasRestoring;
 }
 
 
@@ -815,7 +985,7 @@ var D=(function(){
     im.onerror=function(){alert('Could not open that photo. Try another one.');};im.src=src;}
   return {open:open};
 })();
-function setPreview(d){state.photo=d.split(',')[1];$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;}
+function setPreview(d){state.photo=d.split(',')[1];$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;scheduleSave();}
 $('#designBtn').onclick=function(){$('#dFile').click()};
 $('#dFile').onchange=function(){var f=this.files[0];if(!f)return;var u=URL.createObjectURL(f);D.open(u,function(d){setPreview(d);URL.revokeObjectURL(u);$('#photoPrev').scrollIntoView({block:'center'});});this.value='';};
 $('#designLeadBtn').onclick=function(){var s=$('#reqPhoto').src;if(!s)return;D.open(s,function(d){setPreview(d);$('#photoPrev').scrollIntoView({block:'center'});});};
