@@ -62,7 +62,9 @@
   .toggle{display:flex;align-items:center;gap:12px;font-weight:600}
   .toggle input{width:24px;height:24px;accent-color:var(--ok)}
   .photo-prev{display:flex;align-items:center;gap:12px;margin-top:10px}
-  .photo-prev img{width:110px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+  .photo-prev img{width:110px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer}
+  .photo-prev .pacts{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+  .editbtn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;background:linear-gradient(180deg,#C21530,#A2021F);color:#fff}
   .linkbtn{background:none;border:0;color:var(--red);font-weight:700;text-decoration:underline;padding:0}
   .bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;box-shadow:0 -8px 24px rgba(0,0,0,.08)}
   .bar{flex-wrap:wrap;row-gap:8px}
@@ -313,7 +315,7 @@
           <input type="file" id="photo" accept="image/*" hidden>
           <button class="design-btn" id="designBtn">&#127876; Design lights on a photo</button>
           <button class="ghost" id="photoBtn">&#128247; Attach a finished photo</button>
-          <div class="photo-prev" id="photoPrev" hidden><img alt="Preview photo"><div><button class="linkbtn" id="photoRm">Remove</button></div></div>
+          <div class="photo-prev" id="photoPrev" hidden><img alt="Preview photo"><div class="pacts"><button class="editbtn" id="photoEdit" type="button">&#9998; Edit lights</button><button class="linkbtn" id="photoRm" type="button">Remove</button></div></div>
         </div>
 
         <div class="card">
@@ -390,7 +392,7 @@
 <script>
 var API='https://script.google.com/macros/s/AKfycbxQTr_N2qPRFJ4SF60Hgs69iqh9exsbqk1OAlY1IZLOtl_tSwyM7lDivbiSioAjC8AsTA/exec';
 var $=function(s){return document.querySelector(s)};
-var state={pin:localStorage.getItem('fcl_pin')||'',prices:[],settings:{minimum:0,taxRate:0},qty:{},qtyR:{},mode:'new',custom:[],disc:'amt',photo:null,sending:false,leadId:''};
+var state={pin:localStorage.getItem('fcl_pin')||'',prices:[],settings:{minimum:0,taxRate:0},qty:{},qtyR:{},mode:'new',design:null,imgDirty:false,custom:[],disc:'amt',photo:null,sending:false,leadId:''};
 
 function money(n){return '$'+(Math.round(n*100)/100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
 function readJson(r){return r.text().then(function(t){try{return JSON.parse(t)}catch(e){
@@ -505,11 +507,11 @@ $('#photo').onchange=function(){
   var f=this.files[0];if(!f)return;var url=URL.createObjectURL(f),im=new Image();
   im.onload=function(){var mx=1800,sc=Math.min(1,mx/Math.max(im.width,im.height)),c=document.createElement('canvas');
     c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-    var d=c.toDataURL('image/jpeg',.85);state.photo=d.split(',')[1];$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;URL.revokeObjectURL(url);scheduleSave();};
+    var d=c.toDataURL('image/jpeg',.85);state.photo=d.split(',')[1];state.design=null;state.imgDirty=true;$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;URL.revokeObjectURL(url);scheduleSave();};
   im.onerror=function(){alert('Could not read that photo. Try another one.');};
   im.src=url;
 };
-$('#photoRm').onclick=function(){scheduleSave();state.photo=null;$('#photo').value='';$('#photoPrev').hidden=true;$('#photoBtn').hidden=false;};
+$('#photoRm').onclick=function(){scheduleSave();state.photo=null;state.design=null;state.imgDirty=true;$('#photo').value='';$('#photoPrev').hidden=true;$('#photoBtn').hidden=false;};
 
 /* ---------- send ---------- */
 function sendLabel(){return isRep()?'Send repurpose':'Send estimate';}
@@ -578,9 +580,16 @@ $('#preview').onclick=function(){
 };
 
 /* ---------- drafts (auto-saved on this phone) ---------- */
+// Photos + designs are big, so they live in IndexedDB; the rest of the draft stays in localStorage
+var IDB=(function(){var dbp=null;function db(){if(dbp)return dbp;dbp=new Promise(function(ok,no){try{var r=indexedDB.open('fcl',1);
+  r.onupgradeneeded=function(){r.result.createObjectStore('imgs')};r.onsuccess=function(){ok(r.result)};r.onerror=function(){no(r.error)};}catch(e){no(e)}});return dbp;}
+  function tx(mode,fn){return db().then(function(d){return new Promise(function(ok,no){var t=d.transaction('imgs',mode),st=t.objectStore('imgs'),r=fn(st);
+    t.oncomplete=function(){ok(r&&r.result)};t.onerror=function(){no(t.error)};t.onabort=function(){no(t.error)};});});}
+  return {put:function(k,v){return tx('readwrite',function(s){return s.put(v,k)})},get:function(k){return tx('readonly',function(s){return s.get(k)})},
+    del:function(k){return tx('readwrite',function(s){return s.delete(k)})}};})();
 function allDrafts(){try{return JSON.parse(localStorage.getItem('fcl_drafts')||'{}')}catch(e){return {}}}
 function putDrafts(o){localStorage.setItem('fcl_drafts',JSON.stringify(o));}
-function deleteDraft(id){if(!id)return;var o=allDrafts();delete o[id];try{putDrafts(o)}catch(e){}}
+function deleteDraft(id){if(!id)return;var o=allDrafts();delete o[id];try{putDrafts(o)}catch(e){}IDB.del(id).catch(function(){});}
 function formHasContent(){
   var v=function(id){return $(id).value.trim()};
   if(v('#c-name')||v('#c-phone')||v('#c-email')||v('#c-street')||v('#c-zip')||v('#notes')||v('#origLabor')||state.photo||state.custom.length)return true;
@@ -591,15 +600,19 @@ function draftData(){
   var rows=[].map.call($('#reqList').querySelectorAll('dt'),function(dt){return [dt.textContent,dt.nextElementSibling?dt.nextElementSibling.textContent:''];});
   return {mode:state.mode,f:{name:v('#c-name'),phone:v('#c-phone'),email:v('#c-email'),street:v('#c-street'),city:v('#c-city'),zip:v('#c-zip')},
     qty:state.qty,qtyR:state.qtyR,orig:v('#origLabor'),custom:state.custom,disc:state.disc,discVal:v('#discVal'),notes:v('#notes'),onsite:$('#onsite').checked,
-    photo:state.photo,leadId:state.leadId,leadTxt:state.leadId?$('#fromLeadTxt').textContent:'',leadRows:state.leadId?rows:[],savedAt:Date.now()};
+    hasImg:!!state.photo||!!state.imgLoading,leadId:state.leadId,leadTxt:state.leadId?$('#fromLeadTxt').textContent:'',leadRows:state.leadId?rows:[],savedAt:Date.now()};
 }
 function saveDraft(manual){
   clearTimeout(state.saveT);
   if(state.restoring||!$('#form')||$('#form').hidden)return false;
   if(!formHasContent()){if(manual)toast('Nothing to save yet');return false;}
   if(!state.draftId)state.draftId='d'+Date.now().toString(36);
-  var o=allDrafts(),d=draftData(),dropped=false;o[state.draftId]=d;
-  try{putDrafts(o);}catch(e){ d.photo=null;dropped=true;o[state.draftId]=d; try{putDrafts(o);}catch(e2){ if(manual)toast('Couldn\'t save. Phone storage is full.');return false; } }
+  var o=allDrafts(),d=draftData(),dropped=false,id=state.draftId;o[id]=d;
+  try{putDrafts(o);}catch(e){ if(manual)toast('Couldn\'t save. Phone storage is full.');return false; }
+  if(state.imgDirty){state.imgDirty=false;
+    IDB.put(id,{photo:state.photo,design:state.design}).catch(function(){
+      // no IndexedDB: fall back to keeping just the photo with the draft
+      var o2=allDrafts();if(o2[id]){o2[id].photo=state.photo;try{putDrafts(o2)}catch(e){if(manual)toast('Draft saved (photo too big to keep)');}}});}
   try{localStorage.setItem('fcl_cur_draft',state.draftId)}catch(e){}
   showDraftBar(d);
   if(manual){toast(dropped?'Draft saved (photo too big to keep)':'Draft saved ✓');var sb=$('#saveDraft');sb.textContent='Saved ✓';sb.classList.add('ok');
@@ -620,7 +633,10 @@ function loadDraft(id){
   state.qty=d.qty||{};state.qtyR=d.qtyR||{};$('#origLabor').value=d.orig||'';state.custom=d.custom||[];renderCustom();
   state.disc=d.disc||'amt';document.querySelectorAll('#discType button').forEach(function(x){x.classList.toggle('on',x.dataset.v===state.disc)});
   $('#discVal').value=d.discVal||'';$('#notes').value=d.notes||'';$('#onsite').checked=!!d.onsite;
-  if(d.photo){state.photo=d.photo;$('#photoPrev img').src='data:image/jpeg;base64,'+d.photo;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;}
+  var showImg=function(ph,dg){if(!ph)return;state.photo=ph;state.design=dg||null;$('#photoPrev img').src='data:image/jpeg;base64,'+ph;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;};
+  state.imgDirty=false;
+  if(d.photo){showImg(d.photo,null);state.imgDirty=true;}   // older draft: move its photo into IndexedDB on the next save
+  else if(d.hasImg){state.imgLoading=true;IDB.get(id).then(function(v){if(state.draftId===id){state.imgLoading=false;if(v&&!state.photo)showImg(v.photo,v.design);}}).catch(function(){state.imgLoading=false;});}
   if(d.leadId){state.leadId=d.leadId;$('#fromLeadTxt').textContent=d.leadTxt||('From website request '+d.leadId);$('#fromLead').hidden=false;
     var dl=$('#reqList');dl.innerHTML='';(d.leadRows||[]).forEach(function(x){var dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=x[0];dd.textContent=x[1];dl.appendChild(dt);dl.appendChild(dd);});
     $('#reqCard').hidden=!(d.leadRows||[]).length;}
@@ -818,7 +834,7 @@ function startFromLead(id,btn){
 function clearLead(){state.leadId='';$('#designLeadBtn').hidden=true;$('#fromLead').hidden=true;$('#reqCard').hidden=true;$('#reqPhoto').hidden=true;$('#reqPhotoHint').hidden=true;$('#reqPhoto').removeAttribute('src');}
 $('#unlinkLead').onclick=function(){if(confirm('Clear this lead and start a blank estimate?')){resetFields();clearLead();}};
 function resetFields(){
-  var wasRestoring=state.restoring;state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;
+  state.imgLoading=false;var wasRestoring=state.restoring;state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
   state.qty={};state.qtyR={};$('#origLabor').value='';state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
   $('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;showErr($('#formErr'),'');
@@ -976,19 +992,36 @@ var D=(function(){
     else if(id!=='#dNight'&&strokes.length){var l=strokes[strokes.length-1];l.size=+$('#dSize').value;l.gap=+$('#dGap').value;}draw();}});
   $('#dCancel').onclick=function(){if((strokes.length||cur)&&!confirm('Leave without saving this design?'))return;close();};
   $('#dDone').onclick=function(){finishCur();if(!strokes.length&&!confirm('No lights added yet. Use the photo anyway?'))return;
-    render(true);var data=cv.toDataURL('image/jpeg',.88);close();if(onDone)onDone(data);};
+    // keep the clean photo + every light line so the design can be edited again later
+    var bc=document.createElement('canvas');bc.width=cv.width;bc.height=cv.height;bc.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+    var design={base:bc.toDataURL('image/jpeg',.9).split(',')[1],w:cv.width,h:cv.height,night:+$('#dNight').value,
+      strokes:strokes.map(function(st){return {kind:st.kind,pts:st.pts.map(function(q){return {x:Math.round(q.x*10)/10,y:Math.round(q.y*10)/10}}),closed:!!st.closed,pat:st.pat.k,size:st.size,gap:st.gap};})};
+    render(true);var data=cv.toDataURL('image/jpeg',.88);close();if(onDone)onDone(data,design);};
   function close(){$('#designer').hidden=true;document.body.style.overflow='';strokes=[];cur=null;img=null;}
 
-  function open(src,cb){onDone=cb;var im=new Image();im.onload=function(){
+  function open(src,cb,saved){onDone=cb;var im=new Image();im.onload=function(){
       var mx=1800,sc=Math.min(1,mx/Math.max(im.width,im.height));cv.width=Math.round(im.width*sc);cv.height=Math.round(im.height*sc);
-      img=im;strokes=[];cur=null;spr={};ptrs={};pinch=null;view.s=1;view.x=0;view.y=0;$('#designer').hidden=false;document.body.style.overflow='hidden';hint();render(false);requestAnimationFrame(function(){layout();var r=stage.getBoundingClientRect();if(view.fh&&view.fh<r.height*.6)zoomAt(Math.min(2.6,r.height*.85/view.fh),r.width/2,r.height/2);});};
+      if(saved&&saved.w&&saved.h){cv.width=saved.w;cv.height=saved.h;}
+      img=im;strokes=[];cur=null;
+      if(saved&&saved.strokes){strokes=saved.strokes.map(function(st){var pt=PATS.filter(function(x){return x.k===st.pat})[0]||PATS[0];
+        return {kind:st.kind,pts:st.pts.map(function(q){return {x:q.x,y:q.y}}),closed:st.closed,pat:pt,size:st.size,gap:st.gap};});
+        if(saved.night!=null)$('#dNight').value=saved.night;}spr={};ptrs={};pinch=null;view.s=1;view.x=0;view.y=0;$('#designer').hidden=false;document.body.style.overflow='hidden';hint();render(false);requestAnimationFrame(function(){layout();var r=stage.getBoundingClientRect();if(view.fh&&view.fh<r.height*.6)zoomAt(Math.min(2.6,r.height*.85/view.fh),r.width/2,r.height/2);});};
     im.onerror=function(){alert('Could not open that photo. Try another one.');};im.src=src;}
   return {open:open};
 })();
-function setPreview(d){state.photo=d.split(',')[1];$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;scheduleSave();}
-$('#designBtn').onclick=function(){$('#dFile').click()};
-$('#dFile').onchange=function(){var f=this.files[0];if(!f)return;var u=URL.createObjectURL(f);D.open(u,function(d){setPreview(d);URL.revokeObjectURL(u);$('#photoPrev').scrollIntoView({block:'center'});});this.value='';};
-$('#designLeadBtn').onclick=function(){var s=$('#reqPhoto').src;if(!s)return;D.open(s,function(d){setPreview(d);$('#photoPrev').scrollIntoView({block:'center'});});};
+function setPreview(d,design){state.photo=d.split(',')[1];state.design=design||null;state.imgDirty=true;$('#photoPrev img').src=d;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;scheduleSave();}
+$('#designBtn').onclick=function(){if(state.photo&&!confirm('Start a new design from a different photo? This replaces the current preview. (To change the current one, tap Edit lights.)'))return;$('#dFile').click()};
+$('#dFile').onchange=function(){var f=this.files[0];if(!f)return;var u=URL.createObjectURL(f);D.open(u,function(d,g){setPreview(d,g);URL.revokeObjectURL(u);$('#photoPrev').scrollIntoView({block:'center'});});this.value='';};
+$('#designLeadBtn').onclick=function(){var s=$('#reqPhoto').src;if(!s)return;D.open(s,function(d,g){setPreview(d,g);$('#photoPrev').scrollIntoView({block:'center'});});};
+function editDesign(){
+  if(!state.photo)return;
+  var done=function(d,g){setPreview(d,g);saveDraft(false);$('#photoPrev').scrollIntoView({block:'center'});};
+  if(state.design&&state.design.base){D.open('data:image/jpeg;base64,'+state.design.base,done,state.design);return;}
+  // Older preview (saved before editing existed) or an attached photo: the lights already on it can't be moved, but you can add more
+  if(!confirm('This preview was finished before designs could be re-edited, so the lights already on it are part of the photo. You can add more lights on top. Continue?'))return;
+  D.open('data:image/jpeg;base64,'+state.photo,done);
+}
+$('#photoEdit').onclick=editDesign;$('#photoPrev img').onclick=editDesign;
 
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&state.pin){refreshBadge();if(!$('#tab-recent').hidden)loadRecent();}});
 boot();
