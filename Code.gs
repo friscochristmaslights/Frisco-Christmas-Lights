@@ -31,7 +31,44 @@ var TERMS = [
   ['Annual service', 'Each year, Frisco Christmas Lights will remove your display after the New Year and contact you the following fall to confirm your next installation at your locked Year 2 rate.']
 ];
 var TERMS_CLOSE = 'By signing this estimate, you agree to these terms.';
-function year2_(est) { return round2((Number(est.total) || 0) / 2); }   // half of Year 1 install, tax included proportionally
+function year2_(est) { return isRep_(est) ? round2(est.origLabor) : round2((Number(est.total) || 0) / 2); }   // new: half of Year 1 | repurpose: original labor rate
+
+/* ---- Repurpose (customer moving) estimate wording ---- */
+function isRep_(est) { return String(est && est.type || '').toLowerCase() === 'repurpose'; }
+function repFeet_(est) { return est.lines.reduce(function (a, l) { return a + (l.unit === 'ft' ? Number(l.qty) || 0 : 0); }, 0); }
+function repFee_(est) { return round2(est.lines.reduce(function (a, l) { return a + (l.unit === 'ft' ? Number(l.amount) || 0 : 0); }, 0)); }
+function repRate_(est) { var l = est.lines.filter(function (x) { return x.unit === 'ft'; })[0]; return l ? Number(l.rate) : settings().repurposeRate; }
+function repPoints_(est) {
+  var lab = '$' + money(est.origLabor), rate = '$' + money(repRate_(est));
+  return [
+    ['Your lights move with you.', 'We’ll take the lights from your previous home, re-fit them, and install them at your new home.'],
+    ['This year:', 'your locked reinstallation rate of ' + lab + ', plus a one-time repurposing fee of ' + rate + ' per foot for the ' + repFeet_(est) + ' ft we re-fit and install at your new home ($' + money(repFee_(est)) + ').'],
+    ['Every year after:', 'you’re back to your locked reinstallation rate of ' + lab + ' per year. No repurposing fee.'],
+    ['Using all of your lights.', 'Our goal is to use every light from your previous home. If some of your lights don’t fit the new home, we’ll adjust your reinstallation rate to match what’s installed.'],
+    ['Need more lights?', 'If your new home needs more lights than you already own, we’ll send you a separate estimate for the new lights before adding anything.'],
+    ['Your warranty moves too.', 'Your lifetime warranty stays with your lights at your new home.']
+  ];
+}
+function repTerms_(est) {
+  return [
+    ['Repurposing fee', 'The repurposing fee of $' + money(repRate_(est)) + ' per foot is a one-time charge for re-fitting and installing your existing lights at your new home this season. It does not apply to future years.'],
+    ['Existing materials', 'This estimate covers the lights you already own from your previous installation. If your existing lights do not cover your new home, any additional lights will be quoted on a separate estimate and will not be added without your approval. If some of your existing lights are not used at your new home, your reinstallation rate will be adjusted to match what is installed.'],
+    TERMS[1], TERMS[2],
+    ['Annual service', 'Each year, Frisco Christmas Lights will remove your display after the New Year and contact you the following fall to confirm your next installation at your locked reinstallation rate.']
+  ];
+}
+function terms_(est) { return isRep_(est) ? repTerms_(est) : TERMS; }
+// [year-1 label, sub, year-2 label, sub, small print]
+function labels_(est) {
+  return isRep_(est)
+    ? ['This year', 'Reinstallation + one-time repurposing fee', 'Every year after', 'Your locked reinstallation rate', 'The repurposing fee is a one-time charge for this year’s move. Starting next year, you’re back to your locked reinstallation rate.']
+    : ['Year 1', 'Installation and materials', 'Year 2 and beyond', 'Annual reinstallation, locked rate', 'Your Year 2 rate is locked in for every year Frisco Christmas Lights reinstalls your display.'];
+}
+function aboutHtml_(est, fs) {
+  if (!isRep_(est)) return esc(ABOUT_TEXT);
+  return repPoints_(est).map(function (p) { return '<div style="margin:0 0 6px;' + (fs ? 'font-size:' + fs : '') + '"><b>' + esc(p[0]) + '</b> ' + esc(p[1]) + '</div>'; }).join('');
+}
+function aboutTitle_(est) { return isRep_(est) ? 'How your move works' : 'About your lights'; }
 
 /* ======================= ONE-TIME SETUP ======================= */
 function setup() {
@@ -57,7 +94,8 @@ function setup() {
   // Add any newer settings rows without touching existing values
   var have = st.getRange(1, 1, st.getLastRow(), 1).getValues().map(function (r) { return String(r[0]).trim(); });
   [['Estimates inbox', 'info.friscolights@gmail.com', 'Gets copies of every estimate you send, plus customer replies to estimates.'],
-   ['Approved jobs inbox', BRAND.email, "Gets the 'Approved - add to QuickBooks' email once a customer approves."]
+   ['Approved jobs inbox', BRAND.email, "Gets the 'Approved - add to QuickBooks' email once a customer approves."],
+   ['Repurpose rate per ft', 1, 'One-time repurposing fee per foot when a customer moves their lights to a new home.']
   ].forEach(function (r) { if (have.indexOf(r[0]) < 0) st.appendRow(r); });
 
   var pr = ss.getSheetByName('Prices');
@@ -90,7 +128,7 @@ function setup() {
   leadsSheet_(ss);
   photoFolder_();
   if (headerIndex(es)['Lead #'] === undefined) es.getRange(1, es.getLastColumn() + 1).setValue('Lead #').setFontWeight('bold');
-  ['Preview file', 'Signed name', 'Signed at'].forEach(function (c) { ensureCol_(es, c); });
+  ['Preview file', 'Signed name', 'Signed at', 'Type', 'Original labor'].forEach(function (c) { ensureCol_(es, c); });
   Logger.log(logoDataUri_() ? 'Logo found on friscolights.com' : 'Logo not found yet - upload email-logo.jpg to GitHub');
   var s1 = ss.getSheetByName('Sheet1'); if (s1 && ss.getSheets().length > 1) ss.deleteSheet(s1);
 
@@ -236,19 +274,31 @@ function createEstimate(d) {
 
   // Rebuild every line from the price sheet so totals can't be wrong
   var priceMap = {}; getPrices().forEach(function (p) { priceMap[p.item] = p; });
-  var lines = [];
+  var lines = [], isRep = String(d.type || '') === 'repurpose', origLabor = round2(Math.max(0, Number(d.originalLabor) || 0));
+  if (isRep) {
+    if (!(origLabor > 0)) throw new Error('Add the original labor cost');
+    lines.push({ desc: 'Reinstallation (your locked yearly rate)', qty: 1, unit: '', rate: origLabor, amount: origLabor });
+  }
+  var ftCount = 0;
   (d.items || []).forEach(function (it) {
     var p = priceMap[it.item], q = Number(it.qty) || 0;
-    if (p && q > 0) lines.push({ desc: p.item, qty: q, unit: p.unit, rate: p.price, amount: round2(q * p.price) });
+    if (!p || !(q > 0)) return;
+    if (isRep) {
+      if (p.unit !== 'ft') return;
+      var rr = s.repurposeRate; ftCount += q;
+      lines.push({ desc: p.item + ' (repurpose)', qty: q, unit: 'ft', rate: rr, amount: round2(q * rr) });
+    } else lines.push({ desc: p.item, qty: q, unit: p.unit, rate: p.price, amount: round2(q * p.price) });
   });
+  if (isRep && !ftCount) throw new Error('Add the footage for the new home');
   (d.custom || []).forEach(function (x) {
     var amt = Number(x.amount) || 0, desc = clean(x.desc);
     if (desc && amt) lines.push({ desc: desc, qty: 1, unit: '', rate: amt, amount: round2(amt) });
   });
   if (!lines.length) throw new Error('Add at least one item');
 
-  var t = totals(lines, d.discountType, d.discountValue, s);
+  var t = totals(lines, d.discountType, d.discountValue, s, isRep);
   var sh = sheet('Estimates');
+  ensureCol_(sh, 'Type'); ensureCol_(sh, 'Original labor');
   var id = 'FCL-' + (1000 + sh.getLastRow());
   var token = Utilities.getUuid().replace(/-/g, '');
   var now = new Date();
@@ -256,13 +306,15 @@ function createEstimate(d) {
     id: id, created: now, name: clean(c.name), phone: clean(c.phone), email: clean(c.email),
     street: clean(c.street), city: clean(c.city) || 'Frisco', zip: clean(c.zip), state: 'TX',
     lines: t.lines, subtotal: t.subtotal, discount: t.discount, tax: t.tax, total: t.total,
-    notes: clean(d.notes, 1500), validUntil: new Date(now.getTime() + s.validDays * 864e5), footer: s.footer, token: token
+    notes: clean(d.notes, 1500), validUntil: new Date(now.getTime() + s.validDays * 864e5), footer: s.footer, token: token,
+    type: isRep ? 'Repurpose' : 'New', origLabor: isRep ? origLabor : 0
   };
 
   var rowVals = [est.id, now, 'Sent', est.name, est.phone, est.email, est.street, est.city, est.zip,
     est.lines.map(function (l) { return l.desc + (l.unit ? ' (' + l.qty + ' ' + l.unit + ')' : '') + ' $' + money(l.amount); }).join('\n'),
     est.subtotal, est.discount, est.tax, est.total, est.notes, '', '', JSON.stringify(est.lines), token];
   var eh = headerIndex(sh); if (eh['Lead #'] !== undefined) rowVals[eh['Lead #']] = clean(d.leadId);
+  rowVals[eh['Type']] = est.type; if (isRep) rowVals[eh['Original labor']] = origLabor;
   if (d.photo && d.photo.length < 12000000) {
     est.photoB64 = d.photo;
     if (eh['Preview file'] !== undefined) {
@@ -287,7 +339,7 @@ function createEstimate(d) {
   // Copy to the estimates inbox (keeps the main inbox clean)
   MailApp.sendEmail({
     to: settings().estimatesInbox,
-    subject: (d.approvedOnSite ? 'Estimate approved on site: ' : 'Estimate sent: ') + est.id + ' - ' + est.name + ' - $' + money(est.total),
+    subject: (d.approvedOnSite ? 'Estimate approved on site: ' : 'Estimate sent: ') + (isRep ? '[Repurpose] ' : '') + est.id + ' - ' + est.name + ' - $' + money(est.total),
     htmlBody: '<p>' + (emailed ? 'Sent to ' + esc(est.email) + '.' : (d.approvedOnSite ? 'Marked approved on site.' : '<b>No customer email on file</b> - the PDF is attached so you can text or print it.')) + '</p>' + summaryTable(est),
     attachments: photo ? [pdf, photo] : [pdf]
   });
@@ -295,13 +347,13 @@ function createEstimate(d) {
   return { ok: true, id: id, total: est.total, emailed: emailed, approved: !!d.approvedOnSite };
 }
 
-function totals(lines, discountType, discountValue, s) {
+function totals(lines, discountType, discountValue, s, noMinimum) {
   lines = lines.slice();
   var subtotal = round2(lines.reduce(function (a, l) { return a + l.amount; }, 0));
   var dv = Math.max(0, Number(discountValue) || 0);
   var discount = discountType === 'pct' ? round2(subtotal * Math.min(dv, 100) / 100) : round2(Math.min(dv, subtotal));
   var after = round2(subtotal - discount);
-  if (s.minimum > 0 && after < s.minimum) {
+  if (!noMinimum && s.minimum > 0 && after < s.minimum) {
     var adj = round2(s.minimum - after);
     lines.push({ desc: 'Minimum project adjustment', qty: 1, unit: '', rate: adj, amount: adj });
     subtotal = round2(subtotal + adj); after = s.minimum;
@@ -329,7 +381,7 @@ function approveEstimate(id, token, via, est, pdf, photo) {
   // Office (QuickBooks) email
   MailApp.sendEmail({
     to: s.approvedInbox,
-    subject: '\u2705 Approved: ' + est.name + ' - $' + money(est.total) + ' - add to QuickBooks (' + est.id + ')',
+    subject: '\u2705 Approved' + (isRep_(est) ? ' (repurpose)' : '') + ': ' + est.name + ' - $' + money(est.total) + ' - add to QuickBooks (' + est.id + ')',
     htmlBody: officeEmail(est, via),
     attachments: att
   });
@@ -339,7 +391,7 @@ function approveEstimate(id, token, via, est, pdf, photo) {
       to: est.email, name: BRAND.name, replyTo: s.approvedInbox,
       subject: 'You\u2019re on the schedule! Estimate ' + est.id + ' approved',
       htmlBody: wrap('<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 10px">Thank you, ' + esc(firstName(est.name)) + '!</h2>' +
-        '<p>Your estimate <b>' + est.id + '</b> for <b>$' + money(est.total) + '</b> is approved' + (est.signedName ? ' and signed' : '') + '. Your locked rate for Year 2 and beyond is <b>$' + money(year2_(est)) + '</b> per year. We\u2019ll reach out shortly to schedule your installation.</p><p>Your signed estimate is attached for your records.</p>' +
+        '<p>Your estimate <b>' + est.id + '</b> for <b>$' + money(est.total) + '</b> is approved' + (est.signedName ? ' and signed' : '') + '. ' + (isRep_(est) ? 'Starting next year, you\u2019re back to your locked reinstallation rate of' : 'Your locked rate for Year 2 and beyond is') + ' <b>$' + money(year2_(est)) + '</b> per year. We\u2019ll reach out shortly to schedule your installation.</p><p>Your signed estimate is attached for your records.</p>' +
         '<p>Questions? Call or text <b>' + BRAND.phone + '</b>.</p>'),
       attachments: [pdf]
     });
@@ -371,13 +423,14 @@ function signPage(id, token) {
   else if (already) body = '<div class="card done"><h1>Already approved</h1><p>Estimate <b>' + esc(est.id) + '</b> was approved' + (est.signedName ? ' and signed by <b>' + esc(est.signedName) + '</b>' : '') + '. We\u2019ll be in touch to schedule your installation.</p><p class="muted">Questions? Call or text ' + BRAND.phone + '.</p></div>';
   else {
     var rows = est.lines.map(function (l) { return '<tr><td>' + esc(l.desc) + (l.unit ? ' <span class="muted">(' + l.qty + ' ' + l.unit + ')</span>' : '') + '</td><td class="r">$' + money(l.amount) + '</td></tr>'; }).join('');
-    var terms = TERMS.map(function (t, i) { return '<p><b>' + (i + 1) + '. ' + t[0] + '.</b> ' + esc(t[1]) + '</p>'; }).join('') + '<p><i>' + TERMS_CLOSE + '</i></p>';
+    var L = labels_(est);
+    var terms = terms_(est).map(function (t, i) { return '<p><b>' + (i + 1) + '. ' + t[0] + '.</b> ' + esc(t[1]) + '</p>'; }).join('') + '<p><i>' + TERMS_CLOSE + '</i></p>';
     body = '<div id="form"><div class="card"><div class="muted">Estimate ' + esc(est.id) + '</div><h1>Review &amp; sign</h1>' +
       '<p class="muted" style="margin:0">' + esc(est.name) + ' \u2022 ' + esc(est.street) + (est.city ? ', ' + esc(est.city) : '') + '</p></div>' +
       '<div class="card"><h2>Your holiday lighting</h2><table>' + rows + '</table></div>' +
-      '<div class="card"><h2>Your pricing</h2><div class="yr"><span>Year 1<br><span class="muted">Installation and materials</span></span><b>$' + money(est.total) + '</b></div>' +
-      '<div class="yr"><span>Year 2 and beyond<br><span class="muted">Annual reinstallation, locked rate</span></span><b>$' + money(year2_(est)) + '<span class="muted" style="font-size:13px"> /yr</span></b></div></div>' +
-      '<div class="card"><h2>About your lights</h2><p style="margin:0;line-height:1.55">' + esc(ABOUT_TEXT) + '</p></div>' +
+      '<div class="card"><h2>Your pricing</h2><div class="yr"><span>' + L[0] + '<br><span class="muted">' + L[1] + '</span></span><b>$' + money(est.total) + '</b></div>' +
+      '<div class="yr"><span>' + L[2] + '<br><span class="muted">' + L[3] + '</span></span><b>$' + money(year2_(est)) + '<span class="muted" style="font-size:13px"> /yr</span></b></div></div>' +
+      '<div class="card"><h2>' + aboutTitle_(est) + '</h2><div style="margin:0;line-height:1.55">' + aboutHtml_(est) + '</div></div>' +
       '<div class="card"><h2>Terms and Conditions</h2><div class="terms">' + terms + '</div>' +
       '<label class="f" for="nm">Type your full name to sign</label><input type="text" id="nm" autocomplete="name" placeholder="Full name">' +
       '<label class="chk"><input type="checkbox" id="ag"> <span>I have read and agree to the Terms and Conditions above.</span></label>' +
@@ -420,25 +473,25 @@ function signEstimate(id, token, name, agreed) {
 function sendCustomerEstimate(est, pdf, photo) {
   var url = ScriptApp.getService().getUrl() + '?a=approve&id=' + encodeURIComponent(est.id) + '&t=' + est.token;
   var html = wrap(
-    '<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 10px">Your lighting estimate</h2>' +
-    '<p>Hi ' + esc(firstName(est.name)) + ',</p><p>Thanks for choosing ' + BRAND.name + '! Here\u2019s your estimate for <b>' + esc(est.street) + '</b>.' +
+    '<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 10px">' + (isRep_(est) ? 'Moving your lights to your new home' : 'Your lighting estimate') + '</h2>' +
+    '<p>Hi ' + esc(firstName(est.name)) + ',</p><p>' + (isRep_(est) ? 'Congratulations on the new home! Here\u2019s your estimate to move your lights to <b>' + esc(est.street) + '</b>.' : 'Thanks for choosing ' + BRAND.name + '! Here\u2019s your estimate for <b>' + esc(est.street) + '</b>.') +
     (photo ? ' We\u2019ve also attached a preview showing where your lights will go.' : '') + '</p>' +
     summaryTable(est) + yearBox_(est) +
     (est.notes ? '<p style="background:#FBF7F0;border-left:3px solid ' + BRAND.gold + ';padding:10px 14px">' + esc(est.notes).replace(/\n/g, '<br>') + '</p>' : '') +
-    '<h3 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:22px 0 6px">About your lights</h3><p style="line-height:1.55">' + esc(ABOUT_TEXT) + '</p>' +
+    '<h3 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:22px 0 6px">' + aboutTitle_(est) + '</h3><div style="line-height:1.55">' + aboutHtml_(est) + '</div>' +
     '<p style="text-align:center;margin:28px 0"><a href="' + url + '" style="background:' + BRAND.red + ';color:#fff;text-decoration:none;font-weight:bold;padding:15px 30px;border-radius:10px;display:inline-block;font-size:16px">Review &amp; sign estimate</a></p>' +
     '<p style="color:#6E615A;font-size:13px">Valid until ' + fmtDate(est.validUntil) + '. The full estimate and Terms and Conditions are attached as a PDF.</p>' +
     '<p>Questions or changes? Just reply to this email or call/text <b>' + BRAND.phone + '</b>.</p>'
   );
   MailApp.sendEmail({ to: est.email, name: BRAND.name, replyTo: settings().estimatesInbox,
-    subject: 'Your Christmas lighting estimate ' + est.id + ' - $' + money(est.total),
+    subject: (isRep_(est) ? 'Your light repurpose estimate ' : 'Your Christmas lighting estimate ') + est.id + ' - $' + money(est.total),
     htmlBody: html, attachments: photo ? [pdf, photo] : [pdf] });
 }
 
 function officeEmail(est, via) {
   var row = function (k, v) { return '<tr><td style="padding:6px 12px 6px 0;color:#6E615A;white-space:nowrap">' + k + '</td><td style="padding:6px 0;font-weight:bold">' + esc(v || '-') + '</td></tr>'; };
   return wrap(
-    '<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 6px">New approved install</h2>' +
+    '<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 6px">' + (isRep_(est) ? 'Approved repurpose (customer moved)' : 'New approved install') + '</h2>' +
     '<p style="margin:0 0 16px;color:#6E615A">' + esc(via) + ' \u2022 ' + est.id + (est.signedAt ? ' \u2022 ' + fmtDateTime_(est.signedAt) : '') + '</p>' +
     '<h3 style="margin:18px 0 6px">Customer (QuickBooks fields)</h3><table style="border-collapse:collapse;font-size:15px">' +
     row('Display name', est.name) + row('First name', firstName(est.name)) + row('Last name', lastName(est.name)) +
@@ -451,8 +504,9 @@ function officeEmail(est, via) {
 
 function yearBox_(est) {
   var r = function (k, sub, v) { return '<tr><td style="padding:8px 0;border-bottom:1px solid #E6DAC6">' + k + '<br><span style="color:#6E615A;font-size:12px">' + sub + '</span></td><td style="padding:8px 0;border-bottom:1px solid #E6DAC6;text-align:right;font-weight:bold;font-size:17px;color:' + BRAND.red + ';white-space:nowrap">' + v + '</td></tr>'; };
-  return '<table style="width:100%;border-collapse:collapse;margin:6px 0 10px">' + r('<b>Year 1</b>', 'Installation and materials', '$' + money(est.total)) +
-    r('<b>Year 2 and beyond</b>', 'Annual reinstallation, locked rate', '$' + money(year2_(est)) + ' /yr') + '</table>';
+  var L = labels_(est);
+  return '<table style="width:100%;border-collapse:collapse;margin:6px 0 10px">' + r('<b>' + L[0] + '</b>', L[1], '$' + money(est.total)) +
+    r('<b>' + L[2] + '</b>', L[3], '$' + money(year2_(est)) + ' /yr') + '</table>';
 }
 
 function summaryTable(est) {
@@ -497,7 +551,7 @@ function jpegSize_(bytes) {
 }
 
 function estimatePdf(est) {
-  var W = 680, line = '#E6DAC6', gold = BRAND.gold, red = BRAND.red, muted = '#6E615A';
+  var W = 680, line = '#E6DAC6', gold = BRAND.gold, red = BRAND.red, muted = '#6E615A', L = labels_(est);
   var cell = function (txt, st) { return '<td style="' + st + '">' + txt + '</td>'; };
   var rows = est.lines.map(function (l) {
     var b = 'padding:9px 8px;border-bottom:1px solid ' + line + ';font-size:12.5px;';
@@ -524,7 +578,7 @@ function estimatePdf(est) {
     '<img src="data:image/jpeg;base64,' + PDF_BANNER + '" width="' + W + '" height="' + Math.round(W * 250 / 1360) + '" style="width:' + W + 'px;height:' + Math.round(W * 250 / 1360) + 'px">' +
 
     '<table style="width:' + W + 'px;border-collapse:collapse;margin-top:16px"><tr>' +
-    '<td style="vertical-align:bottom"><div style="font-family:Georgia,serif;font-size:28px;color:' + red + ';letter-spacing:2px">ESTIMATE</div>' +
+    '<td style="vertical-align:bottom"><div style="font-family:Georgia,serif;font-size:28px;color:' + red + ';letter-spacing:2px">' + (isRep_(est) ? 'REPURPOSE ESTIMATE' : 'ESTIMATE') + '</div>' +
     '<div style="font-size:12px;color:' + muted + '">No. <b style="color:#2B201C">' + est.id + '</b></div></td>' +
     '<td style="vertical-align:bottom;text-align:right;font-size:12px;color:' + muted + ';line-height:1.6">Date: <b style="color:#2B201C">' + fmtDate(est.created) + '</b><br>Valid until: <b style="color:#2B201C">' + fmtDate(est.validUntil) + '</b></td>' +
     '</tr></table>' +
@@ -537,7 +591,7 @@ function estimatePdf(est) {
     '<div style="font-size:12px;line-height:1.55;margin-top:3px"><b>' + BRAND.legal + '</b><br>' + BRAND.phone + '<br>' + BRAND.email + '<br>friscolights.com</div></td>' +
     '</tr></table>' +
 
-    heading('Your holiday lighting') +
+    heading(isRep_(est) ? 'Moving your lights to your new home' : 'Your holiday lighting') +
     '<table style="width:' + W + 'px;border-collapse:collapse"><tr>' +
     '<td style="padding:6px 8px;font-size:10px;letter-spacing:1px;font-weight:bold;color:' + gold + ';border-bottom:1px solid ' + gold + '">DESCRIPTION</td>' +
     '<td style="padding:6px 8px;font-size:10px;letter-spacing:1px;font-weight:bold;color:' + gold + ';text-align:center;border-bottom:1px solid ' + gold + '">QTY</td>' +
@@ -553,18 +607,18 @@ function estimatePdf(est) {
 
     heading('Your pricing') +
     '<table style="width:' + W + 'px;border-collapse:collapse">' +
-    '<tr><td style="padding:8px;border-bottom:1px solid ' + line + '"><b style="font-size:14px">Year 1</b><br><span style="font-size:11px;color:' + muted + '">Installation and materials</span></td>' +
+    '<tr><td style="padding:8px;border-bottom:1px solid ' + line + '"><b style="font-size:14px">' + L[0] + '</b><br><span style="font-size:11px;color:' + muted + '">' + L[1] + '</span></td>' +
     '<td style="padding:8px;border-bottom:1px solid ' + line + ';text-align:right;font-size:18px;font-weight:bold;color:' + red + '">$' + money(est.total) + '</td></tr>' +
-    '<tr><td style="padding:8px"><b style="font-size:14px">Year 2 and beyond</b><br><span style="font-size:11px;color:' + muted + '">Annual reinstallation, locked rate</span></td>' +
+    '<tr><td style="padding:8px"><b style="font-size:14px">' + L[2] + '</b><br><span style="font-size:11px;color:' + muted + '">' + L[3] + '</span></td>' +
     '<td style="padding:8px;text-align:right;font-size:18px;font-weight:bold;color:' + red + '">$' + money(year2_(est)) + '<span style="font-size:11px;color:' + muted + ';font-weight:normal"> per year</span></td></tr></table>' +
-    '<div style="font-size:11px;color:' + muted + ';font-style:italic;margin-top:2px">Your Year 2 rate is locked in for every year Frisco Christmas Lights reinstalls your display.</div>' +
+    '<div style="font-size:11px;color:' + muted + ';font-style:italic;margin-top:2px">' + L[4] + '</div>' +
 
-    heading('About your lights') + '<div style="font-size:12px;line-height:1.6">' + esc(ABOUT_TEXT) + '</div>' +
+    heading(aboutTitle_(est)) + '<div style="font-size:12px;line-height:1.6">' + aboutHtml_(est, '12px') + '</div>' +
     (est.notes ? heading('Notes') + '<div style="font-size:12px;line-height:1.55">' + esc(est.notes) + '</div>' : '') +
     preview +
 
     '<div style="page-break-inside:avoid">' + heading('Terms and Conditions') +
-    TERMS.map(function (t, i) { return '<div style="font-size:10.5px;line-height:1.55;margin-bottom:6px"><b>' + (i + 1) + '. ' + t[0] + '.</b> ' + esc(t[1]) + '</div>'; }).join('') +
+    terms_(est).map(function (t, i) { return '<div style="font-size:10.5px;line-height:1.55;margin-bottom:6px"><b>' + (i + 1) + '. ' + t[0] + '.</b> ' + esc(t[1]) + '</div>'; }).join('') +
     '<div style="font-size:10.5px;font-style:italic;margin-top:4px">' + TERMS_CLOSE + '</div></div>' +
 
     (est.signedName
@@ -608,11 +662,12 @@ function settings() {
     minimum: Number(v['Minimum project']) || 0,
     taxRate: Number(v['Tax rate %']) || 0,
     validDays: Number(v['Estimate valid (days)']) || 30,
-    footer: String(v['Footer note'] || '')
+    footer: String(v['Footer note'] || ''),
+    repurposeRate: v['Repurpose rate per ft'] === undefined || v['Repurpose rate per ft'] === '' ? 1 : Number(v['Repurpose rate per ft']) || 0
   };
 }
 function pickEmail(a, b) { a = String(a || '').trim(); b = String(b || '').trim(); return validEmail(a) ? a : (validEmail(b) ? b : Session.getEffectiveUser().getEmail()); }
-function publicSettings() { var s = settings(); return { minimum: s.minimum, taxRate: s.taxRate }; }
+function publicSettings() { var s = settings(); return { minimum: s.minimum, taxRate: s.taxRate, repurposeRate: s.repurposeRate }; }
 function requirePin(pin) {
   var s = settings();
   if (!s.pin || String(pin || '').trim() !== s.pin) { Utilities.sleep(800); throw new Error('Wrong PIN'); }
@@ -634,6 +689,7 @@ function estFromRow(v, h) {
     lines: JSON.parse(v[h['Items JSON']] || '[]'), subtotal: Number(v[h['Subtotal']]) || 0, discount: Number(v[h['Discount']]) || 0,
     tax: Number(v[h['Tax']]) || 0, total: Number(v[h['Total']]) || 0, notes: v[h['Notes']],
     validUntil: new Date(created.getTime() + s.validDays * 864e5), footer: s.footer, token: v[h['Token']],
+    type: h['Type'] !== undefined ? String(v[h['Type']] || 'New') : 'New', origLabor: h['Original labor'] !== undefined ? Number(v[h['Original labor']]) || 0 : 0,
     signedName: h['Signed name'] !== undefined ? v[h['Signed name']] : '', signedAt: h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null,
     photoB64: (function () { try { return h['Preview file'] !== undefined && v[h['Preview file']] ? Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()) : ''; } catch (e) { return ''; } })() };
 }
@@ -643,12 +699,13 @@ function estimateDetail(id) {
   var created = v[h['Created']] instanceof Date ? v[h['Created']] : null, appr = v[h['Approved at']] instanceof Date ? v[h['Approved at']] : null;
   var signedAt = h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null;
   var total = Number(v[h['Total']]) || 0;
-  return { ok: true, est: {
+  var type = h['Type'] !== undefined ? String(v[h['Type']] || 'New') : 'New', origLabor = h['Original labor'] !== undefined ? Number(v[h['Original labor']]) || 0 : 0;
+  return { ok: true, est: { type: type, origLabor: origLabor,
     id: v[h['Estimate #']], status: v[h['Status']], created: created ? fmtDate(created) : '',
     name: v[h['Customer']], phone: String(v[h['Phone']] || ''), email: v[h['Email']] || '',
     street: v[h['Street']], city: v[h['City']], zip: String(v[h['ZIP']] || ''),
     lines: JSON.parse(v[h['Items JSON']] || '[]'), subtotal: Number(v[h['Subtotal']]) || 0, discount: Number(v[h['Discount']]) || 0,
-    tax: Number(v[h['Tax']]) || 0, total: total, year2: round2(total / 2), notes: v[h['Notes']] || '',
+    tax: Number(v[h['Tax']]) || 0, total: total, year2: year2_({ type: type, origLabor: origLabor, total: total }), notes: v[h['Notes']] || '',
     approvedAt: appr ? fmtDateTime_(appr) : '', approvedVia: v[h['Approved via']] || '',
     signedName: h['Signed name'] !== undefined ? (v[h['Signed name']] || '') : '', signedAt: signedAt ? fmtDateTime_(signedAt) : '',
     hasPreview: h['Preview file'] !== undefined && !!v[h['Preview file']] } };
@@ -666,7 +723,8 @@ function recentEstimates(n) {
   var h = headerIndex(sh), start = Math.max(2, last - n + 1);
   return sh.getRange(start, 1, last - start + 1, sh.getLastColumn()).getValues().reverse().map(function (r) {
     return { id: r[h['Estimate #']], date: r[h['Created']] instanceof Date ? fmtDate(r[h['Created']]) : '', name: r[h['Customer']],
-      street: r[h['Street']], city: r[h['City']] || '', total: Number(r[h['Total']]) || 0, status: r[h['Status']] };
+      street: r[h['Street']], city: r[h['City']] || '', total: Number(r[h['Total']]) || 0, status: r[h['Status']],
+      type: h['Type'] !== undefined ? String(r[h['Type']] || 'New') : 'New' };
   });
 }
 
