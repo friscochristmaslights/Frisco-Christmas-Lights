@@ -143,7 +143,7 @@ function doGet(e) {
     if (p.a === 'approve') return signPage(p.id, p.t);
     if (p.a === 'prices') { requirePin(p.pin); return json({ ok: true, items: getPrices(), settings: publicSettings() }); }
     if (p.a === 'recent') { requirePin(p.pin); return json({ ok: true, leads: openLeads(), estimates: recentEstimates(60) }); }
-    if (p.a === 'est') { requirePin(p.pin); return json(estimateDetail(p.id)); }
+    if (p.a === 'est') { requirePin(p.pin); return json(estimateDetail(p.id, p.photo === '1')); }
     if (p.a === 'pdf') { requirePin(p.pin); return json(estimatePdfData(p.id)); }
     if (p.a === 'lead') { requirePin(p.pin); return json(leadDetail(p.id, p.photo === '1')); }
     return text('ok');
@@ -156,6 +156,7 @@ function doPost(e) {
     if (d.key === 'fcl-lead' || d.key === 'fcl-photo') return handleWebsiteLead(d);   // website quote form
     requirePin(d.pin);
     if (d.a === 'estimate') return json(createEstimate(d));
+    if (d.a === 'preview') return json(previewEstimate(d));
     if (d.a === 'approve') { var r = approveEstimate(d.id, null, 'Marked approved in app'); return json(r); }
     if (d.a === 'dismiss') return json(setLeadStatus(d.id, 'Dismissed'));
     return json({ ok: false, error: 'Unknown action' });
@@ -266,8 +267,7 @@ function leadDetail(id, withPhoto) {
 }
 
 /* ======================= ESTIMATES ======================= */
-function createEstimate(d) {
-  var s = settings();
+function buildEst_(d, s) {
   var c = d.customer || {};
   if (!clean(c.name)) throw new Error('Customer name is required');
   if (!clean(c.street)) throw new Error('Street address is required');
@@ -297,18 +297,46 @@ function createEstimate(d) {
   if (!lines.length) throw new Error('Add at least one item');
 
   var t = totals(lines, d.discountType, d.discountValue, s, isRep);
-  var sh = sheet('Estimates');
-  ensureCol_(sh, 'Type'); ensureCol_(sh, 'Original labor');
-  var id = 'FCL-' + (1000 + sh.getLastRow());
-  var token = Utilities.getUuid().replace(/-/g, '');
   var now = new Date();
-  var est = {
-    id: id, created: now, name: clean(c.name), phone: clean(c.phone), email: clean(c.email),
+  return {
+    id: '', created: now, name: clean(c.name), phone: clean(c.phone), email: clean(c.email),
     street: clean(c.street), city: clean(c.city) || 'Frisco', zip: clean(c.zip), state: 'TX',
     lines: t.lines, subtotal: t.subtotal, discount: t.discount, tax: t.tax, total: t.total,
-    notes: clean(d.notes, 1500), validUntil: new Date(now.getTime() + s.validDays * 864e5), footer: s.footer, token: token,
+    notes: clean(d.notes, 1500), validUntil: new Date(now.getTime() + s.validDays * 864e5), footer: s.footer, token: '',
     type: isRep ? 'Repurpose' : 'New', origLabor: isRep ? origLabor : 0
   };
+}
+
+// Customer's-eye preview: same PDF + email, nothing saved or sent
+function previewEstimate(d) {
+  var est = buildEst_(d, settings());
+  est.id = d.reviseId ? clean(d.reviseId) : 'PREVIEW';
+  if (d.reviseId) est.revision = 1;
+  if (d.photo && d.photo.length < 12000000) est.photoB64 = d.photo;
+  var pdf = estimatePdf(est);
+  return { ok: true, total: est.total, year2: year2_(est), name: 'Preview-' + (est.name || 'estimate').replace(/[^\w]+/g, '-') + '.pdf',
+    pdf: Utilities.base64Encode(pdf.getBytes()), emailSubject: customerSubject_(est), emailHtml: customerEmailHtml_(est, !!est.photoB64, '#') };
+}
+
+function createEstimate(d) {
+  var s = settings();
+  var est = buildEst_(d, s), isRep = isRep_(est), origLabor = est.origLabor;
+  var sh = sheet('Estimates');
+  ['Type', 'Original labor', 'Revision', 'Revised at', 'Old tokens'].forEach(function (c) { ensureCol_(sh, c); });
+  // Editing an estimate that was already sent: same estimate #, new signing link, old link retired
+  var reviseRow = 0, prev = null, ph = headerIndex(sh);
+  if (d.reviseId) {
+    reviseRow = findRow(clean(d.reviseId));
+    if (!reviseRow) throw new Error('Could not find the original estimate ' + clean(d.reviseId) + '.');
+    prev = sh.getRange(reviseRow, 1, 1, sh.getLastColumn()).getValues()[0];
+    if (prev[ph['Status']] === 'Approved') throw new Error('This estimate is already approved, so it can\u2019t be changed. Create a new estimate instead.');
+  }
+  var id = reviseRow ? clean(d.reviseId) : 'FCL-' + (1000 + sh.getLastRow());
+  var token = Utilities.getUuid().replace(/-/g, '');
+  var now = est.created;
+  est.id = id; est.token = token;
+  if (reviseRow) est.revision = (Number(prev[ph['Revision']]) || 0) + 1;
+
 
   var rowVals = [est.id, now, 'Sent', est.name, est.phone, est.email, est.street, est.city, est.zip,
     est.lines.map(function (l) { return l.desc + (l.unit ? ' (' + l.qty + ' ' + l.unit + ')' : '') + ' $' + money(l.amount); }).join('\n'),
@@ -322,7 +350,18 @@ function createEstimate(d) {
     }
   }
   for (var i = 0; i < rowVals.length; i++) if (rowVals[i] === undefined) rowVals[i] = '';
-  sh.appendRow(rowVals);
+  if (reviseRow) {
+    var full = prev.slice(); while (full.length < sh.getLastColumn()) full.push('');
+    for (var j = 0; j < rowVals.length; j++) full[j] = rowVals[j];
+    if (!d.leadId && eh['Lead #'] !== undefined) full[eh['Lead #']] = prev[eh['Lead #']] || '';
+    if (eh['Signed name'] !== undefined) full[eh['Signed name']] = '';
+    if (eh['Signed at'] !== undefined) full[eh['Signed at']] = '';
+    full[eh['Revision']] = est.revision; full[eh['Revised at']] = now;
+    full[eh['Old tokens']] = [prev[ph['Old tokens']], prev[ph['Token']]].filter(String).join(',');
+    sh.getRange(reviseRow, 1, 1, full.length).setValues([full]);
+  } else {
+    sh.appendRow(rowVals);
+  }
   if (d.leadId) { try { setLeadStatus(clean(d.leadId), 'Estimated', id); } catch (e) {} }
 
   var pdf = estimatePdf(est);
@@ -339,12 +378,12 @@ function createEstimate(d) {
   // Copy to the estimates inbox (keeps the main inbox clean)
   MailApp.sendEmail({
     to: settings().estimatesInbox,
-    subject: (d.approvedOnSite ? 'Estimate approved on site: ' : 'Estimate sent: ') + (isRep ? '[Repurpose] ' : '') + est.id + ' - ' + est.name + ' - $' + money(est.total),
+    subject: (d.approvedOnSite ? 'Estimate approved on site: ' : (reviseRow ? 'Estimate revised & resent: ' : 'Estimate sent: ')) + (isRep ? '[Repurpose] ' : '') + est.id + ' - ' + est.name + ' - $' + money(est.total),
     htmlBody: '<p>' + (emailed ? 'Sent to ' + esc(est.email) + '.' : (d.approvedOnSite ? 'Marked approved on site.' : '<b>No customer email on file</b> - the PDF is attached so you can text or print it.')) + '</p>' + summaryTable(est),
     attachments: photo ? [pdf, photo] : [pdf]
   });
 
-  return { ok: true, id: id, total: est.total, emailed: emailed, approved: !!d.approvedOnSite };
+  return { ok: true, id: id, total: est.total, emailed: emailed, approved: !!d.approvedOnSite, revised: !!reviseRow };
 }
 
 function totals(lines, discountType, discountValue, s, noMinimum) {
@@ -404,7 +443,9 @@ function signPage(id, token) {
   if (!row) err = 'We couldn\u2019t find that estimate.';
   else {
     var h = headerIndex(sh), v = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0];
-    if (!token || token !== v[h['Token']]) err = 'This link is not valid.';
+    if (!token || token !== v[h['Token']]) err = (token && h['Old tokens'] !== undefined && String(v[h['Old tokens']] || '').split(',').indexOf(token) >= 0)
+      ? 'This estimate has been updated since this email was sent. Please open the most recent email from us titled \u201cUpdated: \u2026\u201d to review and sign the current version.'
+      : 'This link is not valid.';
     else { est = estFromRow(v, h); already = v[h['Status']] === 'Approved'; }
   }
   var css = '*{box-sizing:border-box}body{margin:0;font-family:Helvetica,Arial,sans-serif;background:#FBF7F0;color:#2B201C}' +
@@ -470,11 +511,18 @@ function signEstimate(id, token, name, agreed) {
 }
 
 /* ======================= EMAILS & PDF ======================= */
+function customerSubject_(est) { return (est.revision ? 'Updated: ' : '') + (isRep_(est) ? 'Your light repurpose estimate ' : 'Your Christmas lighting estimate ') + est.id + ' - $' + money(est.total); }
 function sendCustomerEstimate(est, pdf, photo) {
   var url = ScriptApp.getService().getUrl() + '?a=approve&id=' + encodeURIComponent(est.id) + '&t=' + est.token;
-  var html = wrap(
+  MailApp.sendEmail({ to: est.email, name: BRAND.name, replyTo: settings().estimatesInbox,
+    subject: customerSubject_(est),
+    htmlBody: customerEmailHtml_(est, !!photo, url), attachments: photo ? [pdf, photo] : [pdf] });
+}
+function customerEmailHtml_(est, hasPhoto, url) {
+  var photo = hasPhoto;
+  return wrap(
     '<h2 style="font-family:Georgia,serif;color:' + BRAND.red + ';margin:0 0 10px">' + (isRep_(est) ? 'Moving your lights to your new home' : 'Your lighting estimate') + '</h2>' +
-    '<p>Hi ' + esc(firstName(est.name)) + ',</p><p>' + (isRep_(est) ? 'Congratulations on the new home! Here\u2019s your estimate to move your lights to <b>' + esc(est.street) + '</b>.' : 'Thanks for choosing ' + BRAND.name + '! Here\u2019s your estimate for <b>' + esc(est.street) + '</b>.') +
+    '<p>Hi ' + esc(firstName(est.name)) + ',</p>' + (est.revision ? '<p style="background:#FFF4DC;border-radius:8px;padding:10px 14px;margin:0 0 12px"><b>Updated estimate.</b> We\u2019ve made the changes you asked for. This replaces the earlier version, so please use the button in this email to review and sign.</p>' : '') + '<p>' + (isRep_(est) ? 'Congratulations on the new home! Here\u2019s your estimate to move your lights to <b>' + esc(est.street) + '</b>.' : 'Thanks for choosing ' + BRAND.name + '! Here\u2019s your estimate for <b>' + esc(est.street) + '</b>.') +
     (photo ? ' We\u2019ve also attached a preview showing where your lights will go.' : '') + '</p>' +
     summaryTable(est) + yearBox_(est) +
     (est.notes ? '<p style="background:#FBF7F0;border-left:3px solid ' + BRAND.gold + ';padding:10px 14px">' + esc(est.notes).replace(/\n/g, '<br>') + '</p>' : '') +
@@ -483,9 +531,6 @@ function sendCustomerEstimate(est, pdf, photo) {
     '<p style="color:#6E615A;font-size:13px">Valid until ' + fmtDate(est.validUntil) + '. The full estimate and Terms and Conditions are attached as a PDF.</p>' +
     '<p>Questions or changes? Just reply to this email or call/text <b>' + BRAND.phone + '</b>.</p>'
   );
-  MailApp.sendEmail({ to: est.email, name: BRAND.name, replyTo: settings().estimatesInbox,
-    subject: (isRep_(est) ? 'Your light repurpose estimate ' : 'Your Christmas lighting estimate ') + est.id + ' - $' + money(est.total),
-    htmlBody: html, attachments: photo ? [pdf, photo] : [pdf] });
 }
 
 function officeEmail(est, via) {
@@ -693,7 +738,7 @@ function estFromRow(v, h) {
     signedName: h['Signed name'] !== undefined ? v[h['Signed name']] : '', signedAt: h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null,
     photoB64: (function () { try { return h['Preview file'] !== undefined && v[h['Preview file']] ? Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()) : ''; } catch (e) { return ''; } })() };
 }
-function estimateDetail(id) {
+function estimateDetail(id, withPhoto) {
   var sh = sheet('Estimates'), row = findRow(id); if (!row) return { ok: false, error: 'Estimate not found' };
   var h = headerIndex(sh), v = sh.getRange(row, 1, 1, sh.getLastColumn()).getValues()[0];
   var created = v[h['Created']] instanceof Date ? v[h['Created']] : null, appr = v[h['Approved at']] instanceof Date ? v[h['Approved at']] : null;
@@ -708,7 +753,10 @@ function estimateDetail(id) {
     tax: Number(v[h['Tax']]) || 0, total: total, year2: year2_({ type: type, origLabor: origLabor, total: total }), notes: v[h['Notes']] || '',
     approvedAt: appr ? fmtDateTime_(appr) : '', approvedVia: v[h['Approved via']] || '',
     signedName: h['Signed name'] !== undefined ? (v[h['Signed name']] || '') : '', signedAt: signedAt ? fmtDateTime_(signedAt) : '',
-    hasPreview: h['Preview file'] !== undefined && !!v[h['Preview file']] } };
+    hasPreview: h['Preview file'] !== undefined && !!v[h['Preview file']],
+    leadId: h['Lead #'] !== undefined ? String(v[h['Lead #']] || '') : '',
+    revision: h['Revision'] !== undefined ? Number(v[h['Revision']]) || 0 : 0,
+    photo: withPhoto && h['Preview file'] !== undefined && v[h['Preview file']] ? (function () { try { return Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()); } catch (e) { return ''; } })() : '' } };
 }
 
 function estimatePdfData(id) {

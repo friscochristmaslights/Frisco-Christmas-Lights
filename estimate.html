@@ -75,6 +75,10 @@
   .savebtn{background:none;border:1.5px solid var(--line);border-radius:999px;padding:7px 12px;font-weight:700;font-size:.82rem;color:var(--ink);white-space:nowrap}
   .savebtn.ok{border-color:var(--ok);color:var(--ok)}
   @media (min-width:760px){.bar{flex-wrap:nowrap;max-width:none}.bar .acts{width:auto}.bar .acts .btn{flex:none;padding:15px 22px}.bar .btn.pvb{flex:none}main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}}
+  .revbar{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#FFF4DC;color:#8A6412;border:1.5px solid #E9CD8A;border-radius:10px;padding:10px 12px;font-weight:700;font-size:.88rem;margin-bottom:14px}
+  .revbar span{min-width:0}
+  .revbar button{flex:none;color:#8A6412}
+  .btn.edit{background:#fff;color:var(--red);box-shadow:inset 0 0 0 1.5px var(--red)}
   .draftbar{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#EEF4EF;color:#14563A;border-radius:10px;padding:9px 12px;font-weight:700;font-size:.85rem;margin-bottom:14px}
   .draftbar span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .draftbar button{flex:none;color:#14563A}
@@ -83,7 +87,7 @@
   .drow .nm{font-weight:700}.drow .sub{color:var(--muted);font-size:.8rem}
   .drow .row{display:flex;gap:12px;align-items:center}
   .drow .btn{padding:9px 14px;font-size:.88rem}
-  .toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#14563A;color:#fff;font-weight:700;padding:10px 16px;border-radius:999px;z-index:80;box-shadow:0 8px 20px rgba(0,0,0,.2);font-size:.9rem;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+  .toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#14563A;color:#fff;font-weight:700;padding:10px 16px;border-radius:999px;z-index:80;box-shadow:0 8px 20px rgba(0,0,0,.2);font-size:.9rem;opacity:0;transition:opacity .2s;pointer-events:none;max-width:calc(100vw - 32px);text-align:center}
   .toast.on{opacity:1}
   .pv{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;flex-direction:column}
   .pv-top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px 8px;background:#100A09;color:#fff}
@@ -254,6 +258,7 @@
       <div class="err" id="formErr" hidden></div>
       <div id="doneBox" class="card done" hidden></div>
       <div id="form">
+        <div class="revbar" id="reviseBar" hidden><span id="reviseTxt"></span><button class="linkbtn" id="reviseCancel" type="button">Cancel edit</button></div>
         <div class="draftbar" id="draftBar" hidden><span id="draftTxt"></span><button class="linkbtn" id="draftNew">New blank</button></div>
         <div class="from-lead" id="fromLead" hidden><span id="fromLeadTxt"></span><button class="linkbtn" id="unlinkLead">Clear</button></div>
         <div class="card mode-card">
@@ -514,7 +519,7 @@ $('#photo').onchange=function(){
 $('#photoRm').onclick=function(){scheduleSave();state.photo=null;state.design=null;state.imgDirty=true;$('#photo').value='';$('#photoPrev').hidden=true;$('#photoBtn').hidden=false;};
 
 /* ---------- send ---------- */
-function sendLabel(){return isRep()?'Send repurpose':'Send estimate';}
+function sendLabel(){return state.reviseId?(isRep()?'Resend repurpose':'Resend estimate'):(isRep()?'Send repurpose':'Send estimate');}
 // Validate the form and build what goes to the server. Returns null (and shows the problem) if something is missing.
 function collect(){
   var v=function(id){return $(id).value.trim()};
@@ -530,7 +535,7 @@ function collect(){
   var Q=curQty(),items=curItems().filter(function(p){return Q[p.item]>0}).map(function(p){return {item:p.item,qty:Q[p.item]}});
   var custom=state.custom.filter(function(c){return c.desc&&c.amount});
   return {type:isRep()?'repurpose':'new',originalLabor:isRep()?origLabor():0,customer:cust,items:items,custom:custom,discountType:state.disc,discountValue:Number($('#discVal').value)||0,
-    notes:$('#notes').value.trim(),photo:state.photo,approvedOnSite:$('#onsite').checked,leadId:state.leadId};
+    notes:$('#notes').value.trim(),photo:state.photo,approvedOnSite:$('#onsite').checked,leadId:state.leadId,reviseId:state.reviseId||''};
 }
 $('#send').onclick=function(){
   if(state.sending)return;
@@ -542,8 +547,9 @@ $('#send').onclick=function(){
     state.sending=false;b.disabled=false;b.textContent=sendLabel();
     if(!r.ok){ if(/PIN/.test(r.error))return lock('Your PIN changed. Enter the new one.'); return showErr($('#formErr'),r.error||'Something went wrong.'); }
     deleteDraft(state.draftId);state.draftId=null;try{localStorage.removeItem('fcl_cur_draft')}catch(e){}
-    var msg=r.approved?'Approved and sent to the office for QuickBooks.':(r.emailed?'Emailed to '+cust.email+' with an Approve button.':'Saved. The PDF was emailed to you to text or print.');
-    $('#doneBox').innerHTML='<div class="big">&#127876;</div><h2>'+(r.approved?'Approved!':'Estimate sent!')+'</h2><p><b></b></p><p class="muted"></p><button class="btn" id="again">New estimate</button>';
+    var msg=r.approved?'Approved and sent to the office for QuickBooks.':(r.emailed?(r.revised?'Emailed the updated estimate to '+cust.email+'. The old signing link no longer works.':'Emailed to '+cust.email+' with an Approve button.'):'Saved. The PDF was emailed to you to text or print.');
+    state.reviseId=null;$('#reviseBar').hidden=true;delete state.pdfs[r.id];
+    $('#doneBox').innerHTML='<div class="big">&#127876;</div><h2>'+(r.approved?'Approved!':(r.revised?'Updated estimate sent!':'Estimate sent!'))+'</h2><p><b></b></p><p class="muted"></p><button class="btn" id="again">New estimate</button>';
     $('#doneBox b').textContent=r.id+' • '+money(r.total);$('#doneBox .muted').textContent=msg;
     $('#doneBox').hidden=false;$('#form').hidden=true;$('#bar').hidden=true;$('#draftBar').hidden=true;window.scrollTo(0,0);
     $('#again').onclick=resetForm;
@@ -579,6 +585,39 @@ $('#preview').onclick=function(){
   }).catch(function(){b.disabled=false;b.textContent='Preview';$('#pvLoad').textContent='No connection. Try again when you have signal.';});
 };
 
+/* ---------- edit & resend an estimate that was already sent ---------- */
+function showRevise(id){state.reviseId=id;$('#reviseTxt').textContent='\u270E Editing '+id+'. Sending replaces the original and emails them the updated version.';$('#reviseBar').hidden=false;}
+$('#reviseCancel').onclick=function(){if(!confirm('Stop editing '+state.reviseId+'? Nothing will be sent and the original stays as it is.'))return;resetFields();clearLead();toast('Edit canceled');};
+function editSent(e,btn){
+  btn.disabled=true;btn.textContent='Loading...';
+  api({a:'est',pin:state.pin,id:e.id,photo:'1'}).then(function(r){
+    btn.disabled=false;btn.innerHTML='&#9998; Edit &amp; resend';
+    if(!r.ok)return alert(r.error);
+    var x=r.est;saveDraft(false);
+    state.restoring=true;resetFields();clearLead();
+    $('#c-name').value=x.name||'';$('#c-phone').value=x.phone||'';$('#c-email').value=x.email||'';$('#c-street').value=x.street||'';$('#c-city').value=x.city||'Frisco';$('#c-zip').value=x.zip||'';
+    var rep=String(x.type).toLowerCase()==='repurpose',names={};state.prices.forEach(function(p){names[p.item]=p});
+    state.custom=[];
+    (x.lines||[]).forEach(function(l){
+      if(/^Minimum project adjustment$/i.test(l.desc))return;
+      if(rep){
+        if(l.unit==='ft'){state.qtyR[String(l.desc).replace(/ \(repurpose\)$/,'')]=Number(l.qty)||0;return;}
+        if(/^Reinstallation/i.test(l.desc))return;
+      }else if(names[l.desc]){state.qty[l.desc]=Number(l.qty)||0;return;}
+      state.custom.push({desc:l.desc+(l.unit?' ('+l.qty+' '+l.unit+')':''),amount:Number(l.amount)||0});
+    });
+    if(rep)$('#origLabor').value=x.origLabor||'';
+    renderCustom();
+    state.disc='amt';document.querySelectorAll('#discType button').forEach(function(b){b.classList.toggle('on',b.dataset.v==='amt')});
+    $('#discVal').value=x.discount?x.discount:'';$('#notes').value=x.notes||'';
+    if(x.photo){state.photo=x.photo;state.design=null;state.imgDirty=true;$('#photoPrev img').src='data:image/jpeg;base64,'+x.photo;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;}
+    state.leadId=x.leadId||'';
+    showRevise(x.id);setMode(rep?'rep':'new');
+    state.restoring=false;goTab('new');window.scrollTo(0,0);saveDraft(false);
+    toast('Loaded '+x.id+' for editing');
+  }).catch(function(){btn.disabled=false;btn.innerHTML='&#9998; Edit &amp; resend';alert('No connection.');});
+}
+
 /* ---------- drafts (auto-saved on this phone) ---------- */
 // Photos + designs are big, so they live in IndexedDB; the rest of the draft stays in localStorage
 var IDB=(function(){var dbp=null;function db(){if(dbp)return dbp;dbp=new Promise(function(ok,no){try{var r=indexedDB.open('fcl',1);
@@ -600,7 +639,7 @@ function draftData(){
   var rows=[].map.call($('#reqList').querySelectorAll('dt'),function(dt){return [dt.textContent,dt.nextElementSibling?dt.nextElementSibling.textContent:''];});
   return {mode:state.mode,f:{name:v('#c-name'),phone:v('#c-phone'),email:v('#c-email'),street:v('#c-street'),city:v('#c-city'),zip:v('#c-zip')},
     qty:state.qty,qtyR:state.qtyR,orig:v('#origLabor'),custom:state.custom,disc:state.disc,discVal:v('#discVal'),notes:v('#notes'),onsite:$('#onsite').checked,
-    hasImg:!!state.photo||!!state.imgLoading,leadId:state.leadId,leadTxt:state.leadId?$('#fromLeadTxt').textContent:'',leadRows:state.leadId?rows:[],savedAt:Date.now()};
+    hasImg:!!state.photo||!!state.imgLoading,reviseId:state.reviseId||'',leadId:state.leadId,leadTxt:state.leadId?$('#fromLeadTxt').textContent:'',leadRows:state.leadId?rows:[],savedAt:Date.now()};
 }
 function saveDraft(manual){
   clearTimeout(state.saveT);
@@ -640,6 +679,7 @@ function loadDraft(id){
   if(d.leadId){state.leadId=d.leadId;$('#fromLeadTxt').textContent=d.leadTxt||('From website request '+d.leadId);$('#fromLead').hidden=false;
     var dl=$('#reqList');dl.innerHTML='';(d.leadRows||[]).forEach(function(x){var dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=x[0];dd.textContent=x[1];dl.appendChild(dt);dl.appendChild(dd);});
     $('#reqCard').hidden=!(d.leadRows||[]).length;}
+  if(d.reviseId)showRevise(d.reviseId);
   setMode(d.mode||'new');
   state.restoring=false;
   try{localStorage.setItem('fcl_cur_draft',id)}catch(e){}
@@ -668,7 +708,7 @@ window.addEventListener('pagehide',function(){saveDraft(false)});
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')saveDraft(false)});
 
 function resetForm(){
-  state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;
+  state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;state.reviseId=null;$('#reviseBar').hidden=true;
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
   state.qty={};state.qtyR={};$('#origLabor').value='';state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
   clearLead();$('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;window.scrollTo(0,0);refreshBadge();state.restoring=false;
@@ -765,8 +805,9 @@ function openEst(id){
         (e.notes?'<p class="muted" style="margin:12px 0 0"><b>Notes:</b> '+esc2(e.notes)+'</p>':'')+'</div>'+
       '<div class="card"><h2>Estimate PDF</h2><div class="pdfbox" id="pdfBox"><span class="ld">Loading the PDF...</span></div>'+
         '<div class="pdf-actions"><button class="btn ghost2" id="pdfOpen" disabled>Open / share PDF</button></div></div>'+
-      (e.status!=='Approved'?'<button class="btn ok" id="dtApprove" style="width:100%;margin-bottom:14px">Mark approved</button>':'');
+      (e.status!=='Approved'?'<button class="btn edit" id="dtEdit" style="width:100%;margin-bottom:10px">&#9998; Edit &amp; resend</button><button class="btn ok" id="dtApprove" style="width:100%;margin-bottom:14px">Mark approved</button>':'');
     $('#dtBack').onclick=showList;
+    var ed=$('#dtEdit');if(ed)ed.onclick=function(){editSent(e,ed);};
     var ap=$('#dtApprove');if(ap)ap.onclick=function(){
       if(!confirm('Mark '+e.name+' ('+e.id+') as approved and send it to the office?'))return;
       ap.disabled=true;ap.textContent='Sending...';
@@ -834,7 +875,7 @@ function startFromLead(id,btn){
 function clearLead(){state.leadId='';$('#designLeadBtn').hidden=true;$('#fromLead').hidden=true;$('#reqCard').hidden=true;$('#reqPhoto').hidden=true;$('#reqPhotoHint').hidden=true;$('#reqPhoto').removeAttribute('src');}
 $('#unlinkLead').onclick=function(){if(confirm('Clear this lead and start a blank estimate?')){resetFields();clearLead();}};
 function resetFields(){
-  state.imgLoading=false;var wasRestoring=state.restoring;state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;
+  state.imgLoading=false;var wasRestoring=state.restoring;state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;state.reviseId=null;$('#reviseBar').hidden=true;
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
   state.qty={};state.qtyR={};$('#origLabor').value='';state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
   $('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;showErr($('#formErr'),'');
