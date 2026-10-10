@@ -322,7 +322,7 @@ function createEstimate(d) {
   var s = settings();
   var est = buildEst_(d, s), isRep = isRep_(est), origLabor = est.origLabor;
   var sh = sheet('Estimates');
-  ['Type', 'Original labor', 'Revision', 'Revised at', 'Old tokens'].forEach(function (c) { ensureCol_(sh, c); });
+  ['Type', 'Original labor', 'Revision', 'Revised at', 'Old tokens', 'Design file'].forEach(function (c) { ensureCol_(sh, c); });
   // Editing an estimate that was already sent: same estimate #, new signing link, old link retired
   var reviseRow = 0, prev = null, ph = headerIndex(sh);
   if (d.reviseId) {
@@ -348,6 +348,11 @@ function createEstimate(d) {
     if (eh['Preview file'] !== undefined) {
       try { rowVals[eh['Preview file']] = photoFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(d.photo), 'image/jpeg', id + ' - lighting preview.jpg')).getId(); } catch (e) {}
     }
+  }
+  // Keep the editable light design (clean photo + light lines) so it can be changed after sending
+  rowVals[eh['Design file']] = '';
+  if (d.photo && d.design && typeof d.design === 'object' && d.design.base) {
+    try { rowVals[eh['Design file']] = photoFolder_().createFile(Utilities.newBlob(JSON.stringify(d.design), 'application/json', id + ' - light design.json')).getId(); } catch (e) {}
   }
   for (var i = 0; i < rowVals.length; i++) if (rowVals[i] === undefined) rowVals[i] = '';
   if (reviseRow) {
@@ -756,6 +761,7 @@ function estimateDetail(id, withPhoto) {
     hasPreview: h['Preview file'] !== undefined && !!v[h['Preview file']],
     leadId: h['Lead #'] !== undefined ? String(v[h['Lead #']] || '') : '',
     revision: h['Revision'] !== undefined ? Number(v[h['Revision']]) || 0 : 0,
+    design: withPhoto && h['Design file'] !== undefined && v[h['Design file']] ? (function () { try { return JSON.parse(DriveApp.getFileById(v[h['Design file']]).getBlob().getDataAsString()); } catch (e) { return null; } })() : null,
     photo: withPhoto && h['Preview file'] !== undefined && v[h['Preview file']] ? (function () { try { return Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()); } catch (e) { return ''; } })() : '' } };
 }
 
