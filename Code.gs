@@ -40,14 +40,16 @@ function repFee_(est) { return round2(est.lines.reduce(function (a, l) { return 
 function repRate_(est) { var l = est.lines.filter(function (x) { return x.unit === 'ft'; })[0]; return l ? Number(l.rate) : settings().repurposeRate; }
 function repPoints_(est) {
   var lab = '$' + money(est.origLabor), rate = '$' + money(repRate_(est));
-  return [
+  var adjPt = est.prevLabor ? [[est.prevLabor > est.origLabor ? 'Lower reinstallation rate.' : 'Updated reinstallation rate.',
+    (est.prevLabor > est.origLabor ? 'Your new home will use fewer of your lights than your previous home, so your yearly reinstallation rate is lowered' : 'Your yearly reinstallation rate is updated') + ' from $' + money(est.prevLabor) + ' last year to ' + lab + ' starting this year.']] : [];
+  return adjPt.concat([
     ['Your lights move with you.', 'We’ll take the lights from your previous home, re-fit them, and install them at your new home.'],
-    ['This year:', 'your locked reinstallation rate of ' + lab + ', plus a one-time repurposing fee of ' + rate + ' per foot for the ' + repFeet_(est) + ' ft we re-fit and install at your new home ($' + money(repFee_(est)) + ').'],
-    ['Every year after:', 'you’re back to your locked reinstallation rate of ' + lab + ' per year. No repurposing fee.'],
+    ['This year:', 'your ' + (est.prevLabor ? 'new' : 'locked') + ' reinstallation rate of ' + lab + ', plus a one-time repurposing fee of ' + rate + ' per foot for the ' + repFeet_(est) + ' ft we re-fit and install at your new home ($' + money(repFee_(est)) + ').'],
+    ['Every year after:', 'you’re back to your ' + (est.prevLabor ? 'new ' : '') + 'locked reinstallation rate of ' + lab + ' per year. No repurposing fee.'],
     ['Using all of your lights.', 'Our goal is to use every light from your previous home. If some of your lights don’t fit the new home, we’ll adjust your reinstallation rate to match what’s installed.'],
     ['Need more lights?', 'If your new home needs more lights than you already own, we’ll send you a separate estimate for the new lights before adding anything.'],
     ['Your warranty moves too.', 'Your lifetime warranty stays with your lights at your new home.']
-  ];
+  ]);
 }
 function repTerms_(est) {
   return [
@@ -61,7 +63,7 @@ function terms_(est) { return isRep_(est) ? repTerms_(est) : TERMS; }
 // [year-1 label, sub, year-2 label, sub, small print]
 function labels_(est) {
   return isRep_(est)
-    ? ['This year', 'Reinstallation + one-time repurposing fee', 'Every year after', 'Your locked reinstallation rate', 'The repurposing fee is a one-time charge for this year’s move. Starting next year, you’re back to your locked reinstallation rate.']
+    ? ['This year', 'Reinstallation + one-time repurposing fee', 'Every year after', est.prevLabor ? 'Your new reinstallation rate (was $' + money(est.prevLabor) + ')' : 'Your locked reinstallation rate', 'The repurposing fee is a one-time charge for this year’s move. Starting next year, you’re back to your locked reinstallation rate.']
     : ['Year 1', 'Installation and materials', 'Year 2 and beyond', 'Annual reinstallation, locked rate', 'Your Year 2 rate is locked in for every year Frisco Christmas Lights reinstalls your display.'];
 }
 function aboutHtml_(est, fs) {
@@ -275,9 +277,13 @@ function buildEst_(d, s) {
   // Rebuild every line from the price sheet so totals can't be wrong
   var priceMap = {}; getPrices().forEach(function (p) { priceMap[p.item] = p; });
   var lines = [], isRep = String(d.type || '') === 'repurpose', origLabor = round2(Math.max(0, Number(d.originalLabor) || 0));
+  var adj = isRep && !!d.laborAdjusted, newLab = round2(Math.max(0, Number(d.newLabor) || 0)), lab = origLabor;
   if (isRep) {
     if (!(origLabor > 0)) throw new Error('Add the original labor cost');
-    lines.push({ desc: 'Reinstallation (your locked yearly rate)', qty: 1, unit: '', rate: origLabor, amount: origLabor });
+    if (adj && !(newLab > 0)) throw new Error('Add the new labor cost');
+    if (adj && newLab === origLabor) adj = false;
+    if (adj) lab = newLab;
+    lines.push({ desc: adj ? 'Reinstallation (new yearly rate, was $' + money(origLabor) + ')' : 'Reinstallation (your locked yearly rate)', qty: 1, unit: '', rate: lab, amount: lab });
   }
   var ftCount = 0;
   (d.items || []).forEach(function (it) {
@@ -303,7 +309,7 @@ function buildEst_(d, s) {
     street: clean(c.street), city: clean(c.city) || 'Frisco', zip: clean(c.zip), state: 'TX',
     lines: t.lines, subtotal: t.subtotal, discount: t.discount, tax: t.tax, total: t.total,
     notes: clean(d.notes, 1500), validUntil: new Date(now.getTime() + s.validDays * 864e5), footer: s.footer, token: '',
-    type: isRep ? 'Repurpose' : 'New', origLabor: isRep ? origLabor : 0
+    type: isRep ? 'Repurpose' : 'New', origLabor: isRep ? lab : 0, prevLabor: adj ? origLabor : 0
   };
 }
 
@@ -322,7 +328,7 @@ function createEstimate(d) {
   var s = settings();
   var est = buildEst_(d, s), isRep = isRep_(est), origLabor = est.origLabor;
   var sh = sheet('Estimates');
-  ['Type', 'Original labor', 'Revision', 'Revised at', 'Old tokens', 'Design file'].forEach(function (c) { ensureCol_(sh, c); });
+  ['Type', 'Original labor', 'Previous labor', 'Revision', 'Revised at', 'Old tokens', 'Design file'].forEach(function (c) { ensureCol_(sh, c); });
   // Editing an estimate that was already sent: same estimate #, new signing link, old link retired
   var reviseRow = 0, prev = null, ph = headerIndex(sh);
   if (d.reviseId) {
@@ -343,6 +349,7 @@ function createEstimate(d) {
     est.subtotal, est.discount, est.tax, est.total, est.notes, '', '', JSON.stringify(est.lines), token];
   var eh = headerIndex(sh); if (eh['Lead #'] !== undefined) rowVals[eh['Lead #']] = clean(d.leadId);
   rowVals[eh['Type']] = est.type; if (isRep) rowVals[eh['Original labor']] = origLabor;
+  rowVals[eh['Previous labor']] = est.prevLabor || '';
   if (d.photo && d.photo.length < 12000000) {
     est.photoB64 = d.photo;
     if (eh['Preview file'] !== undefined) {
@@ -740,6 +747,7 @@ function estFromRow(v, h) {
     tax: Number(v[h['Tax']]) || 0, total: Number(v[h['Total']]) || 0, notes: v[h['Notes']],
     validUntil: new Date(created.getTime() + s.validDays * 864e5), footer: s.footer, token: v[h['Token']],
     type: h['Type'] !== undefined ? String(v[h['Type']] || 'New') : 'New', origLabor: h['Original labor'] !== undefined ? Number(v[h['Original labor']]) || 0 : 0,
+    prevLabor: h['Previous labor'] !== undefined ? Number(v[h['Previous labor']]) || 0 : 0,
     signedName: h['Signed name'] !== undefined ? v[h['Signed name']] : '', signedAt: h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null,
     photoB64: (function () { try { return h['Preview file'] !== undefined && v[h['Preview file']] ? Utilities.base64Encode(DriveApp.getFileById(v[h['Preview file']]).getBlob().getBytes()) : ''; } catch (e) { return ''; } })() };
 }
@@ -750,7 +758,7 @@ function estimateDetail(id, withPhoto) {
   var signedAt = h['Signed at'] !== undefined && v[h['Signed at']] instanceof Date ? v[h['Signed at']] : null;
   var total = Number(v[h['Total']]) || 0;
   var type = h['Type'] !== undefined ? String(v[h['Type']] || 'New') : 'New', origLabor = h['Original labor'] !== undefined ? Number(v[h['Original labor']]) || 0 : 0;
-  return { ok: true, est: { type: type, origLabor: origLabor,
+  return { ok: true, est: { type: type, origLabor: origLabor, prevLabor: h['Previous labor'] !== undefined ? Number(v[h['Previous labor']]) || 0 : 0,
     id: v[h['Estimate #']], status: v[h['Status']], created: created ? fmtDate(created) : '',
     name: v[h['Customer']], phone: String(v[h['Phone']] || ''), email: v[h['Email']] || '',
     street: v[h['Street']], city: v[h['City']], zip: String(v[h['ZIP']] || ''),

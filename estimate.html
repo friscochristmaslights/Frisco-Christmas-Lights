@@ -290,6 +290,11 @@
           <h2>Original labor cost</h2>
           <div class="money-in"><span>$</span><input id="origLabor" inputmode="decimal" placeholder="0.00" aria-label="Original labor cost"></div>
           <p class="muted" style="margin:8px 0 0">Their locked yearly reinstallation price from the original house. They pay it again this year, plus the repurposing fee, then just this price every year after.</p>
+          <label class="toggle" style="margin-top:14px"><input type="checkbox" id="laborAdj"> Adjust labor cost for the new house</label>
+          <div id="newLaborWrap" hidden style="margin-top:10px">
+            <div class="money-in"><span>$</span><input id="newLabor" inputmode="decimal" placeholder="0.00" aria-label="New labor cost"></div>
+            <p class="muted" style="margin:8px 0 0" id="newLaborNote">New labor cost. They'll see their rate change from last year's price to this one, and it becomes their new yearly price.</p>
+          </div>
         </div>
 
         <div class="card">
@@ -445,6 +450,11 @@ function repRate(){var r=state.settings.repurposeRate;return r==null||r===''?1:N
 function curItems(){return isRep()?state.prices.filter(function(p){return p.unit==='ft'}).map(function(p){return {item:p.item,unit:'ft',price:repRate()}}):state.prices;}
 function curQty(){return isRep()?state.qtyR:state.qty;}
 function origLabor(){return Math.max(0,Math.round((Number($('#origLabor').value.replace(/[$,]/g,''))||0)*100)/100);}
+function newLabor(){return Math.max(0,Math.round((Number($('#newLabor').value.replace(/[$,]/g,''))||0)*100)/100);}
+function laborAdj(){return isRep()&&$('#laborAdj').checked;}
+function effLabor(){return laborAdj()&&newLabor()?newLabor():origLabor();}
+$('#laborAdj').onchange=function(){$('#newLaborWrap').hidden=!this.checked;if(this.checked)setTimeout(function(){$('#newLabor').focus()},50);calc();};
+$('#newLabor').oninput=calc;
 function setMode(m){
   state.mode=m;document.querySelectorAll('#modeSeg button').forEach(function(x){x.classList.toggle('on',x.dataset.m===m)});
   var r=isRep();$('#repExplain').hidden=!r;$('#repCard').hidden=!r;$('#itemsHint').hidden=!r;$('#repSum').hidden=!r;
@@ -492,7 +502,7 @@ $('#discVal').oninput=calc;
 
 function calc(){
   var sub=0,Q=curQty(),feet=0,fee=0;curItems().forEach(function(p){var q=Q[p.item]||0;sub+=q*p.price;feet+=q;fee+=q*p.price;});
-  var lab=isRep()?origLabor():0;sub+=lab;
+  var lab=isRep()?effLabor():0;sub+=lab;
   state.custom.forEach(function(c){if(c.desc||c.amount)sub+=Number(c.amount)||0});
   sub=Math.round(sub*100)/100;
   var dv=Math.max(0,Number($('#discVal').value)||0);
@@ -502,7 +512,8 @@ function calc(){
   var tax=after*(state.settings.taxRate||0)/100;
   if(isRep()){note='This year'+(lab?' \u2022 then '+money(lab)+'/yr':'');
     fee=Math.round(fee*100)/100;
-    $('#repSum').innerHTML='<span>Original labor</span><b>'+money(lab)+'</b><span>Repurposing fee ('+feet+' ft \u00d7 '+money(repRate())+')</span><b>'+money(fee)+'</b>'+
+    var ol=origLabor(),adjOn=laborAdj()&&newLabor()&&newLabor()!==ol;
+    $('#repSum').innerHTML=(adjOn?'<span>Original labor (last year)</span><b style="text-decoration:line-through;color:var(--muted)">'+money(ol)+'</b><span>New labor cost</span><b>'+money(lab)+'</b>':'<span>Original labor</span><b>'+money(lab)+'</b>')+'<span>Repurposing fee ('+feet+' ft \u00d7 '+money(repRate())+')</span><b>'+money(fee)+'</b>'+
       '<span class="big">This year</span><b class="big">'+money(after+tax)+'</b><span>Every year after</span><b>'+money(lab)+'/yr</b>';}
   $('#total').textContent=money(after+tax);$('#totNote').textContent=note+(tax?' incl. tax':'');
   return sub;
@@ -531,12 +542,13 @@ function collect(){
   if(!cust.street)return bad('Add the street address.');
   if(cust.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cust.email))return bad('That email doesn\'t look right.');
   if(isRep()&&!origLabor())return bad('Add the original labor cost (their yearly reinstall price).');
+  if(laborAdj()&&!newLabor())return bad('Add the new labor cost, or uncheck "Adjust labor cost".');
   if(isRep()&&!curItems().some(function(p){return state.qtyR[p.item]>0}))return bad('Add the footage for the new house.');
   if(!calc())return bad('Add at least one item.');
   showErr($('#formErr'),'');
   var Q=curQty(),items=curItems().filter(function(p){return Q[p.item]>0}).map(function(p){return {item:p.item,qty:Q[p.item]}});
   var custom=state.custom.filter(function(c){return c.desc&&c.amount});
-  return {type:isRep()?'repurpose':'new',originalLabor:isRep()?origLabor():0,customer:cust,items:items,custom:custom,discountType:state.disc,discountValue:Number($('#discVal').value)||0,
+  return {type:isRep()?'repurpose':'new',originalLabor:isRep()?origLabor():0,laborAdjusted:laborAdj(),newLabor:laborAdj()?newLabor():0,customer:cust,items:items,custom:custom,discountType:state.disc,discountValue:Number($('#discVal').value)||0,
     notes:$('#notes').value.trim(),photo:state.photo,approvedOnSite:$('#onsite').checked,leadId:state.leadId,reviseId:state.reviseId||'',design:state.photo&&state.design?state.design:null};
 }
 $('#send').onclick=function(){
@@ -608,7 +620,7 @@ function editSent(e,btn){
       }else if(names[l.desc]){state.qty[l.desc]=Number(l.qty)||0;return;}
       state.custom.push({desc:l.desc+(l.unit?' ('+l.qty+' '+l.unit+')':''),amount:Number(l.amount)||0});
     });
-    if(rep)$('#origLabor').value=x.origLabor||'';
+    if(rep){if(x.prevLabor){$('#origLabor').value=x.prevLabor;$('#laborAdj').checked=true;$('#newLabor').value=x.origLabor||'';$('#newLaborWrap').hidden=false;}else $('#origLabor').value=x.origLabor||'';}
     renderCustom();
     state.disc='amt';document.querySelectorAll('#discType button').forEach(function(b){b.classList.toggle('on',b.dataset.v==='amt')});
     $('#discVal').value=x.discount?x.discount:'';$('#notes').value=x.notes||'';
@@ -640,7 +652,7 @@ function draftData(){
   var v=function(id){return $(id).value};
   var rows=[].map.call($('#reqList').querySelectorAll('dt'),function(dt){return [dt.textContent,dt.nextElementSibling?dt.nextElementSibling.textContent:''];});
   return {mode:state.mode,f:{name:v('#c-name'),phone:v('#c-phone'),email:v('#c-email'),street:v('#c-street'),city:v('#c-city'),zip:v('#c-zip')},
-    qty:state.qty,qtyR:state.qtyR,orig:v('#origLabor'),custom:state.custom,disc:state.disc,discVal:v('#discVal'),notes:v('#notes'),onsite:$('#onsite').checked,
+    qty:state.qty,qtyR:state.qtyR,orig:v('#origLabor'),labAdj:$('#laborAdj').checked,newLab:v('#newLabor'),custom:state.custom,disc:state.disc,discVal:v('#discVal'),notes:v('#notes'),onsite:$('#onsite').checked,
     hasImg:!!state.photo||!!state.imgLoading,reviseId:state.reviseId||'',leadId:state.leadId,leadTxt:state.leadId?$('#fromLeadTxt').textContent:'',leadRows:state.leadId?rows:[],savedAt:Date.now()};
 }
 function saveDraft(manual){
@@ -671,7 +683,7 @@ function loadDraft(id){
   resetFields();clearLead();
   state.draftId=id;
   var f=d.f||{};$('#c-name').value=f.name||'';$('#c-phone').value=f.phone||'';$('#c-email').value=f.email||'';$('#c-street').value=f.street||'';$('#c-city').value=f.city||'Frisco';$('#c-zip').value=f.zip||'';
-  state.qty=d.qty||{};state.qtyR=d.qtyR||{};$('#origLabor').value=d.orig||'';state.custom=d.custom||[];renderCustom();
+  state.qty=d.qty||{};state.qtyR=d.qtyR||{};$('#origLabor').value=d.orig||'';$('#laborAdj').checked=!!d.labAdj;$('#newLabor').value=d.newLab||'';$('#newLaborWrap').hidden=!d.labAdj;state.custom=d.custom||[];renderCustom();
   state.disc=d.disc||'amt';document.querySelectorAll('#discType button').forEach(function(x){x.classList.toggle('on',x.dataset.v===state.disc)});
   $('#discVal').value=d.discVal||'';$('#notes').value=d.notes||'';$('#onsite').checked=!!d.onsite;
   var showImg=function(ph,dg){if(!ph)return;state.photo=ph;state.design=dg||null;$('#photoPrev img').src='data:image/jpeg;base64,'+ph;$('#photoPrev').hidden=false;$('#photoBtn').hidden=true;};
@@ -712,7 +724,7 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 function resetForm(){
   state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;state.reviseId=null;$('#reviseBar').hidden=true;
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
-  state.qty={};state.qtyR={};$('#origLabor').value='';state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
+  state.qty={};state.qtyR={};$('#origLabor').value='';$('#laborAdj').checked=false;$('#newLabor').value='';$('#newLaborWrap').hidden=true;state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
   clearLead();$('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;window.scrollTo(0,0);refreshBadge();state.restoring=false;
 }
 
@@ -879,7 +891,7 @@ $('#unlinkLead').onclick=function(){if(confirm('Clear this lead and start a blan
 function resetFields(){
   state.imgLoading=false;var wasRestoring=state.restoring;state.restoring=true;state.draftId=null;$('#draftBar').hidden=true;state.reviseId=null;$('#reviseBar').hidden=true;
   ['#c-name','#c-phone','#c-email','#c-street','#c-zip','#discVal','#notes'].forEach(function(s){$(s).value=''});$('#c-city').value='Frisco';
-  state.qty={};state.qtyR={};$('#origLabor').value='';state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
+  state.qty={};state.qtyR={};$('#origLabor').value='';$('#laborAdj').checked=false;$('#newLabor').value='';$('#newLaborWrap').hidden=true;state.custom=[];$('#onsite').checked=false;$('#photoRm').click();renderCustom();setMode('new');
   $('#doneBox').hidden=true;$('#form').hidden=false;$('#bar').hidden=false;showErr($('#formErr'),'');
   state.restoring=wasRestoring;
 }
